@@ -685,77 +685,61 @@
   </div>
 </div>
 
+
+<!-- LOADING OVERLAY -->
+<div id="loadingOverlay" style="position:fixed;inset:0;background:rgba(6,10,6,.93);z-index:999;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:18px">
+  <div style="width:50px;height:50px;border:3px solid #1a2e1a;border-top:3px solid #10b981;border-radius:50%;animation:spin 1s linear infinite"></div>
+  <div style="color:#4ade80;font-family:'Space Mono',monospace;font-size:13px;letter-spacing:2px">Cargando desde Google Sheets...</div>
+  <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+</div>
+
 <!-- TOAST -->
 <div id="toast"></div>
 
 <script>
-// ══ DATA ══════════════════════════════════════════════════════════════
+// ══ API ══════════════════════════════════════════════════════════
+const API = 'https://script.google.com/macros/s/AKfycbzJno8TT-9YXxG78QRTIivanzvTufBaTiuuDjKWmhPEBmVYOHFcEuPgZ5nDIhbbVnMx/exec';
+
+async function callAPI(action, body={}) {
+  const url = API + '?action=' + action;
+  const res = await fetch(url, {
+    method: 'POST',
+    body: JSON.stringify({ action, ...body }),
+    headers: { 'Content-Type': 'text/plain' }
+  });
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error en API');
+  return json.data;
+}
+
+// ══ DATA ══════════════════════════════════════════════════════════
 const DB = {
-  resumen: {
-    totalIngresos: 1407.81, totalGastos: 739.30,
-    totalSueldos: 422.69, neto: 245.82, saldo: 245.82, saldoInicial: 119.17
-  },
-  ingresos: [
-    {fecha:"23/04/2026", descripcion:"Saldo anterior", ingreso:199.17, categoria:"OTROS", factura:""},
-    {fecha:"23/04/2026", descripcion:"Pago abono Cesar Ramón", ingreso:447.00, categoria:"ABONO", factura:""},
-    {fecha:"24/04/2026", descripcion:"Pago Juan González", ingreso:75.00, categoria:"VENTAS", factura:""},
-    {fecha:"24/04/2026", descripcion:"Pago Mutualista", ingreso:686.64, categoria:"VENTAS", factura:""},
-  ],
-  gastos: [
-    {fecha:"23/04/2026", descripcion:"Tech", factura:"", gasto:223.32, categoria:"MATERIALES"},
-    {fecha:"24/04/2026", descripcion:"Tech", factura:"", gasto:139.40, categoria:"MATERIALES"},
-    {fecha:"24/04/2026", descripcion:"Tech", factura:"", gasto:3.35, categoria:"MATERIALES"},
-    {fecha:"24/04/2026", descripcion:"Almuerzo", factura:"", gasto:8.75, categoria:"ALIMENTACION"},
-    {fecha:"27/04/2026", descripcion:"Almuerzo Burguers", factura:"", gasto:10.99, categoria:"ALIMENTACION"},
-    {fecha:"27/04/2026", descripcion:"Byron Canaleta", factura:"", gasto:0.87, categoria:"MATERIALES"},
-    {fecha:"28/04/2026", descripcion:"Pago Male", factura:"", gasto:31.80, categoria:"MATERIALES"},
-    {fecha:"28/04/2026", descripcion:"Contador", factura:"", gasto:150.41, categoria:"ADMINISTRATIVO"},
-    {fecha:"29/04/2026", descripcion:"Préstamo Pablo", factura:"", gasto:165.41, categoria:"ADMINISTRATIVO"},
-    {fecha:"29/04/2026", descripcion:"Tomacorriente", factura:"", gasto:3.00, categoria:"MATERIALES"},
-    {fecha:"29/04/2026", descripcion:"Relés", factura:"", gasto:2.00, categoria:"MATERIALES"},
-  ],
-  cartera: [
-    {fecha:"23/04/2026", cliente:"Andres Ambrosi", descripcion:"-", valorTotal:821.00, cobrado:0, pendiente:821.00, estado:"PENDIENTE"},
-    {fecha:"23/04/2026", cliente:"CIMA", descripcion:"Remplazo luminaria", valorTotal:46.92, cobrado:0, pendiente:46.92, estado:"PENDIENTE"},
-    {fecha:"23/04/2026", cliente:"Diego Machado", descripcion:"Controles Akari", valorTotal:50.00, cobrado:0, pendiente:50.00, estado:"PENDIENTE"},
-    {fecha:"23/04/2026", cliente:"Jorge Pillaga", descripcion:"-", valorTotal:50.00, cobrado:0, pendiente:50.00, estado:"PENDIENTE"},
-    {fecha:"17/04/2026", cliente:"MAZ", descripcion:"Config. Cámara comedor", valorTotal:17.25, cobrado:17.25, pendiente:0, estado:"COBRADO"},
-    {fecha:"14/04/2026", cliente:"MAZ", descripcion:"Pararrayos", valorTotal:777.98, cobrado:777.98, pendiente:0, estado:"COBRADO"},
-    {fecha:"26/03/2026", cliente:"MAZ", descripcion:"Citófono", valorTotal:15.00, cobrado:15.00, pendiente:0, estado:"COBRADO"},
-    {fecha:"03/03/2026", cliente:"Alejandro Acosta", descripcion:"-", valorTotal:92.00, cobrado:0, pendiente:92.00, estado:"PENDIENTE"},
-    {fecha:"26/03/2026", cliente:"César Ramón", descripcion:"-", valorTotal:311.00, cobrado:0, pendiente:311.00, estado:"PENDIENTE"},
-    {fecha:"29/03/2026", cliente:"MAZ", descripcion:"Biométricos", valorTotal:2434.48, cobrado:0, pendiente:2434.48, estado:"PENDIENTE"},
-    {fecha:"29/03/2026", cliente:"MAZ", descripcion:"Mant. cámaras", valorTotal:2248.25, cobrado:0, pendiente:2248.25, estado:"PENDIENTE"},
-    {fecha:"28/04/2026", cliente:"Diego Machado", descripcion:"Extractores", valorTotal:45.73, cobrado:0, pendiente:45.73, estado:"PENDIENTE"},
-    {fecha:"29/04/2026", cliente:"Juan González", descripcion:"Toma 50A", valorTotal:15.40, cobrado:0, pendiente:15.40, estado:"PENDIENTE"},
-  ],
-  pablo: [
-    {fecha:"23/04/2026", descripcion:"Saldo anterior", valor:302.34},
-    {fecha:"24/04/2026", descripcion:"Almuerzo", valor:-8.75},
-    {fecha:"28/04/2026", descripcion:"Sueldo Pablo", valor:60.00},
-  ],
-  byron: [
-    {fecha:"27/04/2026", descripcion:"Byron Canaleta", valor:-0.87},
-    {fecha:"28/04/2026", descripcion:"Sueldo Byron", valor:350.41},
-    {fecha:"29/04/2026", descripcion:"Duche timbre", valor:23.90},
-    {fecha:"29/04/2026", descripcion:"Relés", valor:-2.00},
-  ],
-  prestamos: [
-    {fecha:"19/09/2025", descripcion:"Préstamo Byron", valor:2000, estado:"PENDIENTE"},
-    {fecha:"01/10/2025", descripcion:"Interés Oct-25", valor:20, estado:"PENDIENTE"},
-    {fecha:"01/11/2025", descripcion:"Interés Nov-25", valor:20, estado:"PENDIENTE"},
-    {fecha:"01/12/2025", descripcion:"Interés Dic-25", valor:20, estado:"PENDIENTE"},
-    {fecha:"01/01/2026", descripcion:"Interés Ene-26", valor:20, estado:"PENDIENTE"},
-    {fecha:"01/02/2026", descripcion:"Interés Feb-26", valor:20, estado:"PENDIENTE"},
-    {fecha:"01/03/2026", descripcion:"Interés Mar-26", valor:20, estado:"PENDIENTE"},
-    {fecha:"01/04/2026", descripcion:"Interés Abr-26", valor:20, estado:"PENDIENTE"},
-    {fecha:"22/04/2026", descripcion:"Buseta", valor:2750, estado:"PAGADO PARCIAL"},
-    {fecha:"22/04/2026", descripcion:"Crédito Pablo", valor:495, estado:"PAGADO PARCIAL"},
-    {fecha:"22/04/2026", descripcion:"IESS", valor:3576.95, estado:"PENDIENTE"},
-  ]
+  resumen: { totalIngresos:0, totalGastos:0, totalSueldos:0, neto:0, saldo:0, saldoInicial:119.17 },
+  ingresos: [], gastos: [],
+  cartera: { total:0, items:[] },
+  pablo: [], byron: [],
+  prestamos: { total:0, items:[] }
 };
 
-// ══ HELPERS ═══════════════════════════════════════════════════════════
+function buildDB(raw) {
+  DB.ingresos = raw.ingresos || [];
+  DB.gastos   = raw.gastos   || [];
+  DB.cartera.items = raw.cartera || [];
+  DB.cartera.total = DB.cartera.items.reduce((s,c)=>s+(c.valorTotal||0),0);
+  DB.pablo  = raw.pablo  || [];
+  DB.byron  = raw.byron  || [];
+  DB.prestamos.items = raw.prestamos || [];
+  DB.prestamos.total = DB.prestamos.items.reduce((s,p)=>s+(p.valor||0),0);
+  if (raw.resumen) {
+    DB.resumen.totalIngresos = raw.resumen.totalIngresos || 0;
+    DB.resumen.totalGastos   = raw.resumen.totalGastos   || 0;
+    DB.resumen.totalSueldos  = raw.resumen.totalSueldos  || 0;
+    DB.resumen.neto          = raw.resumen.neto          || 0;
+    DB.resumen.saldo         = DB.resumen.neto;
+  }
+}
+
+// ══ HELPERS ══════════════════════════════════════════════════════
 const fmt = n => isNaN(+n) ? "-" : "$"+Number(n).toLocaleString("es-EC",{minimumFractionDigits:2,maximumFractionDigits:2});
 const today = () => new Date().toISOString().split("T")[0];
 const PIE = ["#10b981","#3b82f6","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#f97316"];
@@ -767,32 +751,29 @@ function badgeCls(e){
   if(e==="VENCIDO") return "badge badge-venc";
   return "badge badge-otro";
 }
-
-function toast(msg,ms=3000){
+function toast(msg,ms=3500){
   const t=document.getElementById("toast");
   t.textContent=msg; t.style.display="block";
   setTimeout(()=>t.style.display="none",ms);
 }
-
-function openModal(id){ document.getElementById(id).classList.add("open") }
-function closeModal(id){ document.getElementById(id).classList.remove("open") }
-
-function switchTab(id, btn){
+function openModal(id){ document.getElementById(id).classList.add("open"); }
+function closeModal(id){ document.getElementById(id).classList.remove("open"); }
+function switchTab(id,btn){
   document.querySelectorAll(".tab-content").forEach(t=>t.classList.remove("active"));
   document.querySelectorAll(".nav-btn").forEach(b=>b.classList.remove("active"));
   document.getElementById("tab-"+id).classList.add("active");
   btn.classList.add("active");
 }
-
-// ══ CALCULAR TOTALES ══════════════════════════════════════════════════
 function recalc(){
-  DB.resumen.totalIngresos = DB.ingresos.reduce((s,i)=>s+i.ingreso,0);
-  DB.resumen.totalGastos   = DB.gastos.reduce((s,g)=>s+g.gasto,0);
-  DB.resumen.neto          = DB.resumen.totalIngresos - DB.resumen.totalGastos - DB.resumen.totalSueldos;
+  DB.resumen.totalIngresos = DB.ingresos.reduce((s,i)=>s+(i.ingreso||0),0);
+  DB.resumen.totalGastos   = DB.gastos.reduce((s,g)=>s+(g.gasto||0),0);
+  DB.resumen.neto          = DB.resumen.totalIngresos - DB.resumen.totalGastos - (DB.resumen.totalSueldos||0);
   DB.resumen.saldo         = DB.resumen.neto;
+  DB.cartera.total         = DB.cartera.items.reduce((s,c)=>s+(c.valorTotal||0),0);
+  DB.prestamos.total       = DB.prestamos.items.reduce((s,p)=>s+(p.valor||0),0);
 }
 
-// ══ RENDER DASHBOARD ══════════════════════════════════════════════════
+// ══ RENDER DASHBOARD ══════════════════════════════════════════════
 function renderDashboard(){
   recalc();
   const r = DB.resumen;
@@ -802,19 +783,15 @@ function renderDashboard(){
   document.getElementById("kpi-neto").style.color     = r.neto>=0?"var(--green)":"var(--red)";
   document.getElementById("kpi-saldo").textContent    = fmt(r.saldo);
   const margen = r.totalIngresos ? ((r.neto/r.totalIngresos)*100).toFixed(1) : 0;
-  document.getElementById("kpi-margen").textContent   = `Margen: ${margen}%`;
-
-  // Cartera
-  const cartPend = DB.cartera.filter(c=>c.estado!=="COBRADO").reduce((s,c)=>s+c.pendiente,0);
-  const cartCobr = DB.cartera.filter(c=>c.estado==="COBRADO").reduce((s,c)=>s+c.valorTotal,0);
-  const cartPendN = DB.cartera.filter(c=>c.estado==="PENDIENTE"||c.estado==="PARCIAL").length;
+  document.getElementById("kpi-margen").textContent   = "Margen: "+margen+"%";
+  const cartPend = DB.cartera.items.filter(c=>c.estado!=="COBRADO").reduce((s,c)=>s+(c.pendiente||0),0);
+  const cartCobr = DB.cartera.items.filter(c=>c.estado==="COBRADO").reduce((s,c)=>s+(c.valorTotal||0),0);
+  const cartPendN = DB.cartera.items.filter(c=>c.estado==="PENDIENTE"||c.estado==="PARCIAL").length;
   document.getElementById("kpi-cartera").textContent = fmt(cartPend+cartCobr);
-  document.getElementById("kpi-cartera-sub").textContent = `${cartPendN} trabajos por cobrar`;
-
-  // Últimas transacciones
+  document.getElementById("kpi-cartera-sub").textContent = cartPendN+" trabajos por cobrar";
   const all = [
     ...DB.ingresos.map(i=>({fecha:i.fecha,desc:i.descripcion,monto:i.ingreso,tipo:"ing"})),
-    ...DB.gastos.map(g=>({fecha:g.fecha,desc:g.descripcion,monto:g.gasto,tipo:"gas"}))
+    ...DB.gastos.map(g=>  ({fecha:g.fecha,desc:g.descripcion,monto:g.gasto,   tipo:"gas"}))
   ].slice(-12).reverse();
   const tbl = document.getElementById("tbl-recientes");
   tbl.innerHTML = all.map(t=>`
@@ -825,11 +802,9 @@ function renderDashboard(){
         ${t.tipo==="ing"?"+":"-"}${fmt(t.monto)}
       </td>
     </tr>`).join("");
-
-  // Análisis rápido
-  const catGastos = getCatGastos();
-  const topCat = catGastos.sort((a,b)=>b.v-a.v)[0];
-  const cobertura = ((r.totalIngresos / (r.totalGastos||1))*100).toFixed(0);
+  const cats = getCatGastos();
+  const topCat = cats.sort((a,b)=>b.v-a.v)[0];
+  const cobertura = r.totalIngresos ? ((r.totalIngresos/(r.totalGastos||1))*100).toFixed(0) : 0;
   document.getElementById("analisis-rapido").innerHTML = `
     <div class="card" style="padding:14px 16px">
       <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Mayor gasto</div>
@@ -844,71 +819,67 @@ function renderDashboard(){
     <div class="card" style="padding:14px 16px">
       <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">Cartera vs Deudas</div>
       <div style="font-size:16px;font-weight:800;color:var(--amber);margin-top:4px">${fmt(cartPend)} cobrar</div>
-      <div style="font-size:12px;color:var(--muted)">vs $8,961.95 en deudas</div>
+      <div style="font-size:12px;color:var(--muted)">vs ${fmt(DB.prestamos.total)} en deudas</div>
     </div>
     <div class="card" style="padding:14px 16px;border-color:#3a1a1a">
       <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">⚠️ Alerta IESS</div>
       <div style="font-size:16px;font-weight:800;color:var(--red);margin-top:4px">$3,576.95</div>
       <div style="font-size:12px;color:var(--muted)">Pendiente — acumula mora</div>
     </div>`;
-}
-
-// ══ CHARTS ════════════════════════════════════════════════════════════
-let ch1,ch2,ch3;
-const chartOpts = {
-  plugins:{legend:{display:false}},
-  scales:{
-    x:{grid:{color:"#1a2e1a"},ticks:{color:"#6b8f6b",font:{size:10}}},
-    y:{grid:{color:"#1a2e1a"},ticks:{color:"#6b8f6b",font:{size:10},callback:v=>v?"$"+(v/1000).toFixed(0)+"k":""}}
-  }
-};
-
-function initCharts(){
-  const flujoData = {
-    labels:["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"],
-    datasets:[
-      {label:"Ingresos",data:[0,0,0,1407.81,0,0,0,0,0,0,0,0],backgroundColor:"#10b981",borderRadius:5},
-      {label:"Gastos",data:[0,0,0,739.30,0,0,0,0,0,0,0,0],backgroundColor:"#ef4444",borderRadius:5}
-    ]
-  };
-  const ctx1 = document.getElementById("chartFlujo").getContext("2d");
-  if(ch1) ch1.destroy();
-  ch1 = new Chart(ctx1,{type:"bar",data:flujoData,options:{...chartOpts,plugins:{legend:{display:true,labels:{color:"#c8e6c9",font:{size:11}}}}}});
-
   renderPieChart();
 }
 
+// ══ CHARTS ════════════════════════════════════════════════════════
+let ch1,ch2,ch3;
 function getCatGastos(){
   const map={};
   DB.gastos.forEach(g=>{map[g.categoria]=(map[g.categoria]||0)+g.gasto});
   return Object.entries(map).map(([n,v])=>({n,v}));
 }
-
+function initCharts(){
+  const meses=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+  const ingMap={},gasMap={};
+  DB.ingresos.forEach(i=>{
+    const p=i.fecha.split("/"); if(p.length>=2){const m=parseInt(p[1])-1; ingMap[m]=(ingMap[m]||0)+i.ingreso;}
+  });
+  DB.gastos.forEach(g=>{
+    const p=g.fecha.split("/"); if(p.length>=2){const m=parseInt(p[1])-1; gasMap[m]=(gasMap[m]||0)+g.gasto;}
+  });
+  const ctx1=document.getElementById("chartFlujo").getContext("2d");
+  if(ch1)ch1.destroy();
+  ch1=new Chart(ctx1,{type:"bar",data:{
+    labels:meses,
+    datasets:[
+      {label:"Ingresos",data:meses.map((_,i)=>ingMap[i]||0),backgroundColor:"#10b981",borderRadius:5},
+      {label:"Gastos",  data:meses.map((_,i)=>gasMap[i]||0),backgroundColor:"#ef4444",borderRadius:5}
+    ]
+  },options:{plugins:{legend:{display:true,labels:{color:"#c8e6c9",font:{size:11}}}},scales:{
+    x:{grid:{color:"#1a2e1a"},ticks:{color:"#6b8f6b",font:{size:10}}},
+    y:{grid:{color:"#1a2e1a"},ticks:{color:"#6b8f6b",font:{size:10},callback:v=>v?"$"+(v/1000).toFixed(0)+"k":""}}
+  }}});
+  renderPieChart();
+}
 function renderPieChart(){
-  const cats = getCatGastos().sort((a,b)=>b.v-a.v);
-  const labels = cats.map(c=>c.n);
-  const vals = cats.map(c=>c.v);
-  const ctx2 = document.getElementById("chartCats").getContext("2d");
-  if(ch2) ch2.destroy();
-  ch2 = new Chart(ctx2,{type:"doughnut",data:{
-    labels,datasets:[{data:vals,backgroundColor:PIE,borderWidth:0,hoverOffset:6}]
-  },options:{plugins:{legend:{position:"right",labels:{color:"#c8e6c9",font:{size:10},boxWidth:10}}},cutout:"60%"}});
-
-  const ctx3 = document.getElementById("chartCats2").getContext("2d");
-  if(ch3) ch3.destroy();
-  ch3 = new Chart(ctx3,{type:"doughnut",data:{
-    labels,datasets:[{data:vals,backgroundColor:PIE,borderWidth:0,hoverOffset:6}]
-  },options:{plugins:{legend:{position:"right",labels:{color:"#c8e6c9",font:{size:10},boxWidth:10}}},cutout:"60%"}});
+  const cats=getCatGastos().sort((a,b)=>b.v-a.v);
+  const labels=cats.map(c=>c.n), vals=cats.map(c=>c.v);
+  ["chartCats","chartCats2"].forEach((id,ci)=>{
+    const ctx=document.getElementById(id);
+    if(!ctx)return;
+    const ch=ci===0?ch2:ch3;
+    if(ch)ch.destroy();
+    const nc=new Chart(ctx.getContext("2d"),{type:"doughnut",data:{
+      labels,datasets:[{data:vals,backgroundColor:PIE,borderWidth:0,hoverOffset:6}]
+    },options:{plugins:{legend:{position:"right",labels:{color:"#c8e6c9",font:{size:10},boxWidth:10}}},cutout:"60%"}});
+    if(ci===0)ch2=nc; else ch3=nc;
+  });
 }
 
-// ══ RENDER INGRESOS ═══════════════════════════════════════════════════
+// ══ RENDER INGRESOS ══════════════════════════════════════════════
 function renderIngresos(){
-  const total = DB.ingresos.reduce((s,i)=>s+i.ingreso,0);
-  const prom = total/Math.max(DB.ingresos.length,1);
-  document.getElementById("ing-total").textContent = fmt(total);
-  document.getElementById("ing-sub").textContent = `${DB.ingresos.length} transacciones · Promedio ${fmt(prom)}`;
-  const tbody = document.getElementById("tbl-ingresos");
-  tbody.innerHTML = [...DB.ingresos].reverse().map(i=>`
+  const total=DB.ingresos.reduce((s,i)=>s+(i.ingreso||0),0);
+  document.getElementById("ing-total").textContent=fmt(total);
+  document.getElementById("ing-sub").textContent=`${DB.ingresos.length} transacciones · Promedio ${fmt(total/Math.max(DB.ingresos.length,1))}`;
+  document.getElementById("tbl-ingresos").innerHTML=[...DB.ingresos].reverse().map(i=>`
     <tr>
       <td><span class="mono">${i.fecha}</span></td>
       <td>${i.descripcion}</td>
@@ -918,27 +889,20 @@ function renderIngresos(){
     </tr>`).join("");
 }
 
-// ══ RENDER GASTOS ════════════════════════════════════════════════════
+// ══ RENDER GASTOS ════════════════════════════════════════════════
 function renderGastos(){
-  const total = DB.gastos.reduce((s,g)=>s+g.gasto,0);
-  const prom = total/Math.max(DB.gastos.length,1);
-  document.getElementById("gas-total").textContent = fmt(total);
-  document.getElementById("gas-sub").textContent = `${DB.gastos.length} transacciones · Promedio ${fmt(prom)}`;
-
-  const cats = getCatGastos().sort((a,b)=>b.v-a.v);
-  const clist = document.getElementById("cats-list");
-  clist.innerHTML = cats.map((c,i)=>`
+  const total=DB.gastos.reduce((s,g)=>s+(g.gasto||0),0);
+  document.getElementById("gas-total").textContent=fmt(total);
+  document.getElementById("gas-sub").textContent=`${DB.gastos.length} transacciones · Promedio ${fmt(total/Math.max(DB.gastos.length,1))}`;
+  const cats=getCatGastos().sort((a,b)=>b.v-a.v);
+  document.getElementById("cats-list").innerHTML=cats.map((c,i)=>`
     <div style="display:flex;align-items:center;gap:10px">
       <div style="width:10px;height:10px;border-radius:50%;background:${PIE[i%PIE.length]};flex-shrink:0"></div>
       <div style="flex:1;font-size:13px">${c.n}</div>
       <div class="fw7" style="font-family:var(--mono);font-size:13px">${fmt(c.v)}</div>
-      <div class="pbar-wrap">
-        <div class="pbar-fill" style="width:${total?((c.v/total)*100).toFixed(0):0}%;background:${PIE[i%PIE.length]}"></div>
-      </div>
+      <div class="pbar-wrap"><div class="pbar-fill" style="width:${total?((c.v/total)*100).toFixed(0):0}%;background:${PIE[i%PIE.length]}"></div></div>
     </div>`).join("");
-
-  const tbody = document.getElementById("tbl-gastos");
-  tbody.innerHTML = [...DB.gastos].reverse().map(g=>`
+  document.getElementById("tbl-gastos").innerHTML=[...DB.gastos].reverse().map(g=>`
     <tr>
       <td><span class="mono">${g.fecha}</span></td>
       <td>${g.descripcion}</td>
@@ -946,29 +910,25 @@ function renderGastos(){
       <td style="color:var(--muted);font-size:12px">${g.categoria}</td>
       <td class="fw7 cr" style="text-align:right;font-family:var(--mono)">${fmt(g.gasto)}</td>
     </tr>`).join("");
-
   renderPieChart();
 }
 
-// ══ RENDER CARTERA ═══════════════════════════════════════════════════
+// ══ RENDER CARTERA ════════════════════════════════════════════════
 function renderCartera(){
-  const total = DB.cartera.reduce((s,c)=>s+c.valorTotal,0);
-  const pend  = DB.cartera.filter(c=>c.estado!=="COBRADO").reduce((s,c)=>s+c.pendiente,0);
-  const cobr  = DB.cartera.filter(c=>c.estado==="COBRADO").reduce((s,c)=>s+c.valorTotal,0);
-  const nPend = DB.cartera.filter(c=>c.estado==="PENDIENTE"||c.estado==="PARCIAL").length;
-  document.getElementById("cart-total").textContent = fmt(total);
-  document.getElementById("cart-pendiente").textContent = fmt(pend);
-  document.getElementById("cart-cobrado").textContent = fmt(cobr);
-  document.getElementById("cart-pend-sub").textContent = `${nPend} trabajos activos`;
-
-  const tbody = document.getElementById("tbl-cartera");
-  tbody.innerHTML = DB.cartera.map((c,i)=>`
+  const pend=DB.cartera.items.filter(c=>c.estado!=="COBRADO").reduce((s,c)=>s+(c.pendiente||0),0);
+  const cobr=DB.cartera.items.filter(c=>c.estado==="COBRADO").reduce((s,c)=>s+(c.valorTotal||0),0);
+  const nPend=DB.cartera.items.filter(c=>c.estado==="PENDIENTE"||c.estado==="PARCIAL").length;
+  document.getElementById("cart-total").textContent=fmt(DB.cartera.total);
+  document.getElementById("cart-pendiente").textContent=fmt(pend);
+  document.getElementById("cart-cobrado").textContent=fmt(cobr);
+  document.getElementById("cart-pend-sub").textContent=nPend+" trabajos activos";
+  document.getElementById("tbl-cartera").innerHTML=DB.cartera.items.map((c,i)=>`
     <tr>
       <td><span class="mono">${c.fecha}</span></td>
       <td class="fw7">${c.cliente}</td>
       <td>${c.descripcion||"-"}</td>
       <td style="font-family:var(--mono)">${fmt(c.valorTotal)}</td>
-      <td class="fw7 ${c.pendiente>0?"ca":"cg"}" style="font-family:var(--mono)">${fmt(c.pendiente)}</td>
+      <td class="fw7 ${(c.pendiente||0)>0?"ca":"cg"}" style="font-family:var(--mono)">${fmt(c.pendiente)}</td>
       <td>
         <select class="${badgeCls(c.estado)}" style="border:none;cursor:pointer;font-family:'DM Sans',sans-serif;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px"
           onchange="cambiarEstadoCartera(${i},this.value)">
@@ -981,118 +941,178 @@ function renderCartera(){
     </tr>`).join("");
 }
 
-function cambiarEstadoCartera(i, estado){
-  DB.cartera[i].estado = estado;
-  if(estado==="COBRADO"){ DB.cartera[i].cobrado = DB.cartera[i].valorTotal; DB.cartera[i].pendiente = 0; }
-  else { DB.cartera[i].cobrado = 0; DB.cartera[i].pendiente = DB.cartera[i].valorTotal; }
-  renderCartera();
-  renderDashboard();
-  toast("✅ Estado actualizado");
+async function cambiarEstadoCartera(i,estado){
+  const item=DB.cartera.items[i];
+  item.estado=estado;
+  if(estado==="COBRADO"){item.cobrado=item.valorTotal;item.pendiente=0;}
+  else{item.cobrado=0;item.pendiente=item.valorTotal;}
+  renderCartera(); renderDashboard();
+  try{
+    await callAPI('updateCarteraEstado',{fila:item.fila,estado});
+    toast("✅ Estado actualizado en Google Sheets");
+  }catch(e){toast("⚠️ Guardado local. Error Sheets: "+e.message);}
 }
 
-// ══ RENDER SOCIOS ════════════════════════════════════════════════════
+// ══ RENDER SOCIOS ════════════════════════════════════════════════
 function renderSocios(){
-  const pTotal = DB.pablo.reduce((s,m)=>s+m.valor,0);
-  const bTotal = DB.byron.reduce((s,m)=>s+m.valor,0);
-  document.getElementById("pablo-total").textContent = fmt(pTotal);
-  document.getElementById("pablo-total-foot").textContent = fmt(pTotal);
-  document.getElementById("byron-total").textContent = fmt(bTotal);
-  document.getElementById("byron-total-foot").textContent = fmt(bTotal);
-
-  const rp = document.getElementById("tbl-pablo");
-  rp.innerHTML = DB.pablo.map(m=>`
+  const pT=DB.pablo.reduce((s,m)=>s+(m.valor||0),0);
+  const bT=DB.byron.reduce((s,m)=>s+(m.valor||0),0);
+  document.getElementById("pablo-total").textContent=fmt(pT);
+  document.getElementById("pablo-total-foot").textContent=fmt(pT);
+  document.getElementById("byron-total").textContent=fmt(bT);
+  document.getElementById("byron-total-foot").textContent=fmt(bT);
+  document.getElementById("tbl-pablo").innerHTML=DB.pablo.map(m=>`
     <tr>
       <td><span class="mono">${m.fecha}</span></td>
       <td>${m.descripcion}</td>
-      <td class="fw7 ${m.valor>=0?"cg":"cr"}" style="text-align:right;font-family:var(--mono)">${m.valor>=0?"+":""}${fmt(m.valor)}</td>
+      <td class="fw7 ${(m.valor||0)>=0?"cg":"cr"}" style="text-align:right;font-family:var(--mono)">${(m.valor||0)>=0?"+":""}${fmt(m.valor)}</td>
     </tr>`).join("");
-
-  const rb = document.getElementById("tbl-byron");
-  rb.innerHTML = DB.byron.map(m=>`
+  document.getElementById("tbl-byron").innerHTML=DB.byron.map(m=>`
     <tr>
       <td><span class="mono">${m.fecha}</span></td>
       <td>${m.descripcion}</td>
-      <td class="fw7 ${m.valor>=0?"cg":"cr"}" style="text-align:right;font-family:var(--mono)">${m.valor>=0?"+":""}${fmt(m.valor)}</td>
+      <td class="fw7 ${(m.valor||0)>=0?"cg":"cr"}" style="text-align:right;font-family:var(--mono)">${(m.valor||0)>=0?"+":""}${fmt(m.valor)}</td>
     </tr>`).join("");
 }
 
-// ══ RENDER DEUDAS ════════════════════════════════════════════════════
+// ══ RENDER DEUDAS ════════════════════════════════════════════════
 function renderDeudas(){
-  const pend  = DB.prestamos.filter(p=>p.estado==="PENDIENTE").reduce((s,p)=>s+p.valor,0);
-  const parci = DB.prestamos.filter(p=>p.estado==="PAGADO PARCIAL").reduce((s,p)=>s+p.valor,0);
-  document.getElementById("deuda-pend").textContent  = fmt(pend);
-  document.getElementById("deuda-parci").textContent = fmt(parci);
-
-  const tbody = document.getElementById("tbl-deudas");
-  tbody.innerHTML = DB.prestamos.map(p=>`
+  const pend =DB.prestamos.items.filter(p=>p.estado==="PENDIENTE").reduce((s,p)=>s+(p.valor||0),0);
+  const parci=DB.prestamos.items.filter(p=>p.estado==="PAGADO PARCIAL").reduce((s,p)=>s+(p.valor||0),0);
+  document.getElementById("deuda-pend").textContent=fmt(pend);
+  document.getElementById("deuda-parci").textContent=fmt(parci);
+  document.getElementById("tbl-deudas").innerHTML=DB.prestamos.items.map(p=>`
     <tr>
       <td><span class="mono">${p.fecha}</span></td>
-      <td class="fw7" style="${p.descripcion==="IESS"?"color:var(--red)":""}">${p.descripcion}</td>
+      <td class="fw7">${p.descripcion}</td>
       <td class="fw7 cr" style="text-align:right;font-family:var(--mono)">${fmt(p.valor)}</td>
       <td><span class="${badgeCls(p.estado)}">${p.estado}</span></td>
     </tr>`).join("");
 }
 
-// ══ AGREGAR REGISTROS ════════════════════════════════════════════════
-function agregarIngreso(){
-  const fecha = document.getElementById("ing-fecha").value;
-  const monto = parseFloat(document.getElementById("ing-monto").value);
-  const desc  = document.getElementById("ing-desc").value.trim();
-  const cat   = document.getElementById("ing-cat").value;
-  const fac   = document.getElementById("ing-fac").value.trim();
-  if(!fecha||!desc||isNaN(monto)||monto<=0){ toast("⚠️ Completa todos los campos requeridos"); return; }
-  const f = fecha.split("-").reverse().join("/");
-  DB.ingresos.push({fecha:f,descripcion:desc,ingreso:monto,categoria:cat,factura:fac});
-  closeModal("modal-ing");
-  document.getElementById("ing-fecha").value = today();
-  document.getElementById("ing-monto").value = "";
-  document.getElementById("ing-desc").value = "";
-  document.getElementById("ing-fac").value = "";
-  renderIngresos(); renderDashboard();
-  toast("✅ Ingreso guardado correctamente");
+// ══ AGREGAR REGISTROS ════════════════════════════════════════════
+async function agregarIngreso(){
+  const fecha=document.getElementById('ing-fecha').value;
+  const monto=parseFloat(document.getElementById('ing-monto').value);
+  const desc =document.getElementById('ing-desc').value.trim();
+  const cat  =document.getElementById('ing-cat').value;
+  const fac  =document.getElementById('ing-fac').value.trim();
+  if(!fecha||!desc||isNaN(monto)||monto<=0){toast('⚠️ Completa todos los campos requeridos');return;}
+  const f=fecha.split('-').reverse().join('/');
+  toast('💾 Guardando en Google Sheets...');
+  try{
+    await callAPI('addIngreso',{fecha:f,descripcion:desc,ingreso:monto,categoria:cat,factura:fac});
+    DB.ingresos.push({fecha:f,descripcion:desc,ingreso:monto,categoria:cat,factura:fac});
+    closeModal('modal-ing');
+    document.getElementById('ing-fecha').value=today();
+    document.getElementById('ing-monto').value='';
+    document.getElementById('ing-desc').value='';
+    document.getElementById('ing-fac').value='';
+    renderIngresos(); renderDashboard();
+    toast('✅ Ingreso guardado en Google Sheets');
+  }catch(e){toast('❌ Error: '+e.message);}
 }
 
-function agregarGasto(){
-  const fecha = document.getElementById("gas-fecha").value;
-  const monto = parseFloat(document.getElementById("gas-monto").value);
-  const desc  = document.getElementById("gas-desc").value.trim();
-  const cat   = document.getElementById("gas-cat").value;
-  const fac   = document.getElementById("gas-fac").value.trim();
-  if(!fecha||!desc||isNaN(monto)||monto<=0){ toast("⚠️ Completa todos los campos requeridos"); return; }
-  const f = fecha.split("-").reverse().join("/");
-  DB.gastos.push({fecha:f,descripcion:desc,gasto:monto,categoria:cat,factura:fac});
-  closeModal("modal-gas");
-  document.getElementById("gas-fecha").value = today();
-  document.getElementById("gas-monto").value = "";
-  document.getElementById("gas-desc").value = "";
-  document.getElementById("gas-fac").value = "";
-  renderGastos(); renderDashboard();
-  toast("✅ Gasto guardado correctamente");
+async function agregarGasto(){
+  const fecha=document.getElementById('gas-fecha').value;
+  const monto=parseFloat(document.getElementById('gas-monto').value);
+  const desc =document.getElementById('gas-desc').value.trim();
+  const cat  =document.getElementById('gas-cat').value;
+  const fac  =document.getElementById('gas-fac').value.trim();
+  if(!fecha||!desc||isNaN(monto)||monto<=0){toast('⚠️ Completa todos los campos requeridos');return;}
+  const f=fecha.split('-').reverse().join('/');
+  toast('💾 Guardando en Google Sheets...');
+  try{
+    await callAPI('addGasto',{fecha:f,descripcion:desc,gasto:monto,categoria:cat,factura:fac});
+    DB.gastos.push({fecha:f,descripcion:desc,gasto:monto,categoria:cat,factura:fac});
+    closeModal('modal-gas');
+    document.getElementById('gas-fecha').value=today();
+    document.getElementById('gas-monto').value='';
+    document.getElementById('gas-desc').value='';
+    document.getElementById('gas-fac').value='';
+    renderGastos(); renderDashboard();
+    toast('✅ Gasto guardado en Google Sheets');
+  }catch(e){toast('❌ Error: '+e.message);}
 }
 
-function agregarCartera(){
-  const fecha  = document.getElementById("cart-fecha").value;
-  const val    = parseFloat(document.getElementById("cart-valor").value);
-  const client = document.getElementById("cart-cliente").value.trim();
-  const desc   = document.getElementById("cart-desc").value.trim();
-  const estado = document.getElementById("cart-estado").value;
-  if(!fecha||!client||isNaN(val)||val<=0){ toast("⚠️ Completa todos los campos requeridos"); return; }
-  const f = fecha.split("-").reverse().join("/");
-  DB.cartera.push({fecha:f,cliente:client,descripcion:desc,valorTotal:val,cobrado:0,pendiente:val,estado});
-  closeModal("modal-cart");
-  document.getElementById("cart-fecha").value = today();
-  document.getElementById("cart-valor").value = "";
-  document.getElementById("cart-cliente").value = "";
-  document.getElementById("cart-desc").value = "";
-  renderCartera(); renderDashboard();
-  toast("✅ Trabajo agregado a cartera");
+async function agregarCartera(){
+  const fecha =document.getElementById('cart-fecha').value;
+  const val   =parseFloat(document.getElementById('cart-valor').value);
+  const client=document.getElementById('cart-cliente').value.trim();
+  const desc  =document.getElementById('cart-desc').value.trim();
+  const estado=document.getElementById('cart-estado').value;
+  if(!fecha||!client||isNaN(val)||val<=0){toast('⚠️ Completa todos los campos requeridos');return;}
+  const f=fecha.split('-').reverse().join('/');
+  toast('💾 Guardando en Google Sheets...');
+  try{
+    await callAPI('addCartera',{fecha:f,cliente:client,descripcion:desc,valorTotal:val,estado});
+    DB.cartera.items.push({fecha:f,cliente:client,descripcion:desc,valorTotal:val,cobrado:0,pendiente:val,estado});
+    closeModal('modal-cart');
+    document.getElementById('cart-fecha').value=today();
+    document.getElementById('cart-valor').value='';
+    document.getElementById('cart-cliente').value='';
+    document.getElementById('cart-desc').value='';
+    renderCartera(); renderDashboard();
+    toast('✅ Trabajo agregado en Google Sheets');
+  }catch(e){toast('❌ Error: '+e.message);}
 }
 
-function recargar(){
-  toast("🔄 Datos sincronizados con Drive");
-  renderAll();
+async function agregarSocio(){
+  const fecha=document.getElementById('soc-fecha').value;
+  const quien=document.getElementById('soc-quien').value;
+  const desc =document.getElementById('soc-desc').value.trim();
+  const valor=parseFloat(document.getElementById('soc-valor').value);
+  if(!fecha||!desc||isNaN(valor)){toast('⚠️ Completa todos los campos');return;}
+  const f=fecha.split('-').reverse().join('/');
+  toast('💾 Guardando en Google Sheets...');
+  try{
+    await callAPI('addSocio',{fecha:f,descripcion:desc,valor,quien});
+    DB[quien].push({fecha:f,descripcion:desc,valor});
+    closeModal('modal-socio');
+    document.getElementById('soc-fecha').value=today();
+    document.getElementById('soc-desc').value='';
+    document.getElementById('soc-valor').value='';
+    renderSocios(); renderDashboard();
+    toast('✅ Movimiento guardado en Google Sheets');
+  }catch(e){toast('❌ Error: '+e.message);}
 }
 
+async function agregarDeuda(){
+  const fecha =document.getElementById('deu-fecha').value;
+  const valor =parseFloat(document.getElementById('deu-valor').value);
+  const desc  =document.getElementById('deu-desc').value.trim();
+  const estado=document.getElementById('deu-estado').value;
+  if(!fecha||!desc||isNaN(valor)||valor<=0){toast('⚠️ Completa todos los campos');return;}
+  const f=fecha.split('-').reverse().join('/');
+  toast('💾 Guardando en Google Sheets...');
+  try{
+    await callAPI('addDeuda',{fecha:f,descripcion:desc,valor,estado});
+    DB.prestamos.items.push({fecha:f,descripcion:desc,valor,estado});
+    closeModal('modal-deuda');
+    document.getElementById('deu-fecha').value=today();
+    document.getElementById('deu-valor').value='';
+    document.getElementById('deu-desc').value='';
+    renderDeudas(); renderDashboard();
+    toast('✅ Deuda registrada en Google Sheets');
+  }catch(e){toast('❌ Error: '+e.message);}
+}
+
+// ══ FAB ══════════════════════════════════════════════════════════
+function togglePicker(){
+  const ov=document.getElementById('pickerOv');
+  const fab=document.getElementById('fab');
+  const open=ov.classList.toggle('open');
+  fab.classList.toggle('spinning',open);
+  fab.textContent=open?'✕':'＋';
+}
+function closePicker(){
+  document.getElementById('pickerOv').classList.remove('open');
+  const fab=document.getElementById('fab');
+  fab.classList.remove('spinning');
+  fab.textContent='＋';
+}
+
+// ══ RENDER ALL + INIT ════════════════════════════════════════════
 function renderAll(){
   renderDashboard();
   renderIngresos();
@@ -1103,64 +1123,31 @@ function renderAll(){
   initCharts();
 }
 
-// ══ INIT ══════════════════════════════════════════════════════════════
-window.addEventListener("DOMContentLoaded", ()=>{
-  // Fecha de hoy en los inputs
+async function cargarDesdeSheets(){
+  const loading=document.getElementById('loadingOverlay');
+  if(loading)loading.style.display='flex';
+  try{
+    const raw=await callAPI('getDatos');
+    buildDB(raw);
+    renderAll();
+    document.getElementById("syncDate").textContent=
+      "Sync: "+new Date().toLocaleDateString("es-EC",{day:"2-digit",month:"short",year:"numeric"});
+    toast("✅ Datos cargados desde Google Sheets");
+  }catch(e){
+    toast("⚠️ Error al conectar con Sheets. Verifica el script.");
+    console.error(e);
+  }
+  if(loading)loading.style.display='none';
+}
+
+function recargar(){ cargarDesdeSheets(); }
+
+function fmtK(v){ return v>=1000?"$"+(v/1000).toFixed(0)+"k":v>0?"$"+v:""; }
+
+window.addEventListener("DOMContentLoaded",()=>{
   document.querySelectorAll('input[type=date]').forEach(i=>i.value=today());
-  // Sync date en header
-  document.getElementById("syncDate").textContent = "Sync: "+new Date().toLocaleDateString("es-EC",{day:"2-digit",month:"short",year:"numeric"});
-  renderAll();
+  cargarDesdeSheets();
 });
-
-// ══ FAB ═══════════════════════════════════════════════════════
-function togglePicker(){
-  const ov = document.getElementById('pickerOv');
-  const fab = document.getElementById('fab');
-  const open = ov.classList.toggle('open');
-  fab.classList.toggle('spinning', open);
-  fab.textContent = open ? '✕' : '＋';
-}
-function closePicker(){
-  document.getElementById('pickerOv').classList.remove('open');
-  const fab = document.getElementById('fab');
-  fab.classList.remove('spinning');
-  fab.textContent = '＋';
-}
-
-// ══ AGREGAR SOCIO ════════════════════════════════════════════
-function agregarSocio(){
-  const fecha = document.getElementById('soc-fecha').value;
-  const quien = document.getElementById('soc-quien').value;
-  const desc  = document.getElementById('soc-desc').value.trim();
-  const valor = parseFloat(document.getElementById('soc-valor').value);
-  if(!fecha||!desc||isNaN(valor)){ toast('⚠️ Completa todos los campos'); return; }
-  const f = fecha.split('-').reverse().join('/');
-  DB[quien].push({fecha:f, descripcion:desc, valor});
-  closeModal('modal-socio');
-  document.getElementById('soc-fecha').value = today();
-  document.getElementById('soc-desc').value = '';
-  document.getElementById('soc-valor').value = '';
-  renderSocios(); renderDashboard();
-  toast('✅ Movimiento de socio guardado');
-}
-
-// ══ AGREGAR DEUDA ════════════════════════════════════════════
-function agregarDeuda(){
-  const fecha = document.getElementById('deu-fecha').value;
-  const valor = parseFloat(document.getElementById('deu-valor').value);
-  const desc  = document.getElementById('deu-desc').value.trim();
-  const estado = document.getElementById('deu-estado').value;
-  if(!fecha||!desc||isNaN(valor)||valor<=0){ toast('⚠️ Completa todos los campos'); return; }
-  const f = fecha.split('-').reverse().join('/');
-  DB.prestamos.push({fecha:f, descripcion:desc, valor, estado});
-  closeModal('modal-deuda');
-  document.getElementById('deu-fecha').value = today();
-  document.getElementById('deu-valor').value = '';
-  document.getElementById('deu-desc').value = '';
-  renderDeudas(); renderDashboard();
-  toast('✅ Deuda registrada');
-}
-
-</script>
+</script></script>
 </body>
 </html>
