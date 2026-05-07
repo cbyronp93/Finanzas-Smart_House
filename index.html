@@ -1028,10 +1028,10 @@ function renderDeudas(){
   const totalD = DB.resumen.totalDeudas != null ? DB.resumen.totalDeudas : DB.prestamos.total;
   document.getElementById("deuda-pend").textContent=fmt(pend);
   document.getElementById("deuda-parci").textContent=fmt(parci);
-  const dtf=document.getElementById("deuda-total-footer");
-  if(dtf) dtf.textContent=fmt(totalD);
-  const dkpi=document.getElementById("kpi-deudas-total");
-  if(dkpi) dkpi.textContent=fmt(totalD);
+  const _dtf=document.getElementById("deuda-total-footer");
+  if(_dtf) _dtf.textContent=fmt(totalD);
+  const _dkpi=document.getElementById("kpi-deudas-total");
+  if(_dkpi) _dkpi.textContent=fmt(totalD);
   document.getElementById("tbl-deudas").innerHTML=DB.prestamos.items.map(p=>`
     <tr>
       <td><span class="mono">${p.fecha}</span></td>
@@ -1039,8 +1039,7 @@ function renderDeudas(){
       <td class="fw7 cr" style="text-align:right;font-family:var(--mono)">${fmt(p.valor)}</td>
       <td><span class="${badgeCls(p.estado)}">${p.estado}</span></td>
     </tr>`).join("");
-  const dtf = document.getElementById("deuda-total-footer");
-  if(dtf) dtf.textContent = fmt(DB.prestamos.total);
+
 }
 
 // ══ AGREGAR REGISTROS ════════════════════════════════════════════
