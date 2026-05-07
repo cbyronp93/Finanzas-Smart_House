@@ -239,11 +239,7 @@
       <div class="stat-val cr" id="kpi-gastos">Cargando...</div>
       <div class="stat-sub">11 transacciones registradas</div>
     </div>
-    <div class="card">
-      <div class="card-title">📈 Resultado Neto</div>
-      <div class="stat-val" id="kpi-neto" style="color:var(--green)">Cargando...</div>
-      <div class="stat-sub" id="kpi-margen">-</div>
-    </div>
+
     <div class="card">
       <div class="card-title">🏦 Saldo en Cuenta</div>
       <div class="stat-val" style="color:var(--blue)" id="kpi-saldo">Cargando...</div>
@@ -253,13 +249,13 @@
 
   <div class="g3">
     <div class="card">
-      <div class="card-title">📋 Cartera por Cobrar</div>
+      <div class="card-title">📋 Total Cartera</div>
       <div class="stat-val ca" id="kpi-cartera">Cargando...</div>
       <div class="stat-sub" id="kpi-cartera-sub">-</div>
     </div>
     <div class="card">
       <div class="card-title">⚠️ Deudas Pendientes</div>
-      <div class="stat-val cr">$8,961.95</div>
+      <div class="stat-val cr" id="kpi-deudas-total">Cargando...</div>
       <div class="stat-sub">Préstamos y obligaciones</div>
     </div>
     <div class="card">
@@ -423,7 +419,7 @@
   <div class="g3">
     <div class="card">
       <div class="card-title">⚠️ Total Pendiente</div>
-      <div class="stat-val cr">$8,961.95</div>
+      <div class="stat-val cr" id="kpi-deudas-total">Cargando...</div>
       <div class="stat-sub">Préstamos y obligaciones</div>
     </div>
     <div class="card">
@@ -753,14 +749,17 @@ function buildDB(raw) {
     DB.resumen.totalIngresos = raw.resumen.totalIngresos || 0;
     DB.resumen.totalGastos   = raw.resumen.totalGastos   || 0;
     DB.resumen.totalSueldos  = raw.resumen.totalSueldos  || 0;
-    DB.resumen.neto          = raw.resumen.neto          || 0;
-    DB.resumen.saldo         = raw.resumen.saldo         || raw.resumen.neto || 0;
-    // Socios
-    DB.resumen.totalPablo    = raw.resumen.totalPablo    || 0;
-    DB.resumen.totalByron    = raw.resumen.totalByron    || 0;
-    DB.resumen.diffSocios    = raw.resumen.diffSocios    || 0;
-    DB.resumen.aFavorDe      = raw.resumen.aFavorDe      || 'PABLO';
-    DB.resumen.diffAbs       = raw.resumen.diffAbs       || 0;
+    DB.resumen.saldo             = raw.resumen.saldo             || 0;
+    DB.resumen.totalPablo        = raw.resumen.totalPablo        || 0;
+    DB.resumen.totalByron        = raw.resumen.totalByron        || 0;
+    DB.resumen.aFavorDe          = raw.resumen.aFavorDe          || 'PABLO';
+    DB.resumen.diffAbs           = raw.resumen.diffAbs           || 0;
+    DB.resumen.cartTotal         = raw.resumen.cartTotal         || 0;
+    DB.resumen.cartCobrado       = raw.resumen.cartCobrado       || 0;
+    DB.resumen.cartPendiente     = raw.resumen.cartPendiente     || 0;
+    DB.resumen.totalDeudas       = raw.resumen.totalDeudas       || 0;
+    DB.resumen.totalDeudasPend   = raw.resumen.totalDeudasPend   || 0;
+    DB.resumen.totalDeudasParci  = raw.resumen.totalDeudasParci  || 0;
   }
 }
 
@@ -793,7 +792,7 @@ function recalc(){
   DB.resumen.totalIngresos = DB.ingresos.reduce((s,i)=>s+(i.ingreso||0),0);
   DB.resumen.totalGastos   = DB.gastos.reduce((s,g)=>s+(g.gasto||0),0);
   DB.resumen.neto          = DB.resumen.totalIngresos - DB.resumen.totalGastos - (DB.resumen.totalSueldos||0);
-  // saldo viene del Sheet, no se recalcula localmente
+  DB.resumen.saldo = DB.resumen.saldo || 0;
   DB.cartera.total         = DB.cartera.items.reduce((s,c)=>s+(c.valorTotal||0),0);
   DB.prestamos.total       = DB.prestamos.items.reduce((s,p)=>s+(p.valor||0),0);
 }
@@ -812,13 +811,15 @@ function renderDashboard(){
     document.getElementById("kpi-socio-diff").textContent = fmt(r.diffAbs);
     document.getElementById("kpi-socio-favor").textContent = "A favor de " + (r.aFavorDe || "?");
   }
-  const margen = r.totalIngresos ? ((r.neto/r.totalIngresos)*100).toFixed(1) : 0;
+
   document.getElementById("kpi-margen").textContent   = "Margen: "+margen+"%";
-  const cartPend = DB.cartera.items.filter(c=>c.estado!=="COBRADO").reduce((s,c)=>s+(c.pendiente||0),0);
-  const cartCobr = DB.cartera.items.filter(c=>c.estado==="COBRADO").reduce((s,c)=>s+(c.valorTotal||0),0);
+  // Usar totales directo del Sheet
+  const cartPend  = r.cartPendiente || DB.cartera.items.filter(c=>c.estado!=="COBRADO").reduce((s,c)=>s+(c.pendiente||0),0);
+  const cartCobr  = r.cartCobrado   || DB.cartera.items.filter(c=>c.estado==="COBRADO").reduce((s,c)=>s+(c.valorTotal||0),0);
+  const cartTotal = r.cartTotal     || DB.cartera.total;
   const cartPendN = DB.cartera.items.filter(c=>c.estado==="PENDIENTE"||c.estado==="PARCIAL").length;
-  document.getElementById("kpi-cartera").textContent = fmt(cartPend+cartCobr);
-  document.getElementById("kpi-cartera-sub").textContent = cartPendN+" trabajos por cobrar";
+  document.getElementById("kpi-cartera").textContent = fmt(cartTotal);
+  document.getElementById("kpi-cartera-sub").textContent = cartPendN+" trabajos pendientes";
   const all = [
     ...DB.ingresos.map(i=>({fecha:i.fecha,desc:i.descripcion,monto:i.ingreso,tipo:"ing"})),
     ...DB.gastos.map(g=>  ({fecha:g.fecha,desc:g.descripcion,monto:g.gasto,   tipo:"gas"}))
@@ -945,10 +946,14 @@ function renderGastos(){
 
 // ══ RENDER CARTERA ════════════════════════════════════════════════
 function renderCartera(){
-  const pend=DB.cartera.items.filter(c=>c.estado!=="COBRADO").reduce((s,c)=>s+(c.pendiente||0),0);
-  const cobr=DB.cartera.items.filter(c=>c.estado==="COBRADO").reduce((s,c)=>s+(c.valorTotal||0),0);
-  const nPend=DB.cartera.items.filter(c=>c.estado==="PENDIENTE"||c.estado==="PARCIAL").length;
-  document.getElementById("cart-total").textContent=fmt(DB.cartera.total);
+  // Totales desde Sheet directamente
+  const pend  = DB.resumen.cartPendiente != null ? DB.resumen.cartPendiente
+                : DB.cartera.items.filter(c=>c.estado!=="COBRADO").reduce((s,c)=>s+(c.pendiente||0),0);
+  const cobr  = DB.resumen.cartCobrado != null ? DB.resumen.cartCobrado
+                : DB.cartera.items.filter(c=>c.estado==="COBRADO").reduce((s,c)=>s+(c.valorTotal||0),0);
+  const total = DB.resumen.cartTotal != null ? DB.resumen.cartTotal : DB.cartera.total;
+  const nPend = DB.cartera.items.filter(c=>c.estado==="PENDIENTE"||c.estado==="PARCIAL").length;
+  document.getElementById("cart-total").textContent=fmt(total);
   document.getElementById("cart-pendiente").textContent=fmt(pend);
   document.getElementById("cart-cobrado").textContent=fmt(cobr);
   document.getElementById("cart-pend-sub").textContent=nPend+" trabajos activos";
@@ -1015,10 +1020,18 @@ function renderSocios(){
 
 // ══ RENDER DEUDAS ════════════════════════════════════════════════
 function renderDeudas(){
-  const pend =DB.prestamos.items.filter(p=>p.estado==="PENDIENTE").reduce((s,p)=>s+(p.valor||0),0);
-  const parci=DB.prestamos.items.filter(p=>p.estado==="PAGADO PARCIAL").reduce((s,p)=>s+(p.valor||0),0);
+  // Totales desde Sheet directamente
+  const pend  = DB.resumen.totalDeudasPend  != null ? DB.resumen.totalDeudasPend
+                : DB.prestamos.items.filter(p=>p.estado==="PENDIENTE").reduce((s,p)=>s+(p.valor||0),0);
+  const parci = DB.resumen.totalDeudasParci != null ? DB.resumen.totalDeudasParci
+                : DB.prestamos.items.filter(p=>p.estado.indexOf("PARCIAL")!==-1).reduce((s,p)=>s+(p.valor||0),0);
+  const totalD = DB.resumen.totalDeudas != null ? DB.resumen.totalDeudas : DB.prestamos.total;
   document.getElementById("deuda-pend").textContent=fmt(pend);
   document.getElementById("deuda-parci").textContent=fmt(parci);
+  const dtf=document.getElementById("deuda-total-footer");
+  if(dtf) dtf.textContent=fmt(totalD);
+  const dkpi=document.getElementById("kpi-deudas-total");
+  if(dkpi) dkpi.textContent=fmt(totalD);
   document.getElementById("tbl-deudas").innerHTML=DB.prestamos.items.map(p=>`
     <tr>
       <td><span class="mono">${p.fecha}</span></td>
