@@ -803,16 +803,13 @@ function renderDashboard(){
   const r = DB.resumen;
   document.getElementById("kpi-ingresos").textContent = fmt(r.totalIngresos);
   document.getElementById("kpi-gastos").textContent   = fmt(r.totalGastos);
-  document.getElementById("kpi-neto").textContent     = fmt(r.neto);
-  document.getElementById("kpi-neto").style.color     = r.neto>=0?"var(--green)":"var(--red)";
-  document.getElementById("kpi-saldo").textContent    = fmt(r.saldo || r.neto);
+  document.getElementById("kpi-saldo").textContent    = fmt(r.saldo);
   // Socios — directo del Sheet
   if(r.diffAbs !== undefined) {
     document.getElementById("kpi-socio-diff").textContent = fmt(r.diffAbs);
     document.getElementById("kpi-socio-favor").textContent = "A favor de " + (r.aFavorDe || "?");
   }
 
-  document.getElementById("kpi-margen").textContent   = "Margen: "+margen+"%";
   // Usar totales directo del Sheet
   const cartPend  = r.cartPendiente || DB.cartera.items.filter(c=>c.estado!=="COBRADO").reduce((s,c)=>s+(c.pendiente||0),0);
   const cartCobr  = r.cartCobrado   || DB.cartera.items.filter(c=>c.estado==="COBRADO").reduce((s,c)=>s+(c.valorTotal||0),0);
