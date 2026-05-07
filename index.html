@@ -701,15 +701,33 @@
 const API = 'https://script.google.com/macros/s/AKfycbzJno8TT-9YXxG78QRTIivanzvTufBaTiuuDjKWmhPEBmVYOHFcEuPgZ5nDIhbbVnMx/exec';
 
 async function callAPI(action, body={}) {
-  const url = API + '?action=' + action;
-  const res = await fetch(url, {
-    method: 'POST',
-    body: JSON.stringify({ action, ...body }),
-    headers: { 'Content-Type': 'text/plain' }
-  });
-  const json = await res.json();
-  if (!json.ok) throw new Error(json.error || 'Error en API');
-  return json.data;
+  try {
+    // Para getDatos usamos GET (evita CORS preflight)
+    if (action === 'getDatos') {
+      const url = API + '?action=getDatos';
+      const res = await fetch(url, { method: 'GET', redirect: 'follow' });
+      const json = await res.json();
+      if (!json.ok) throw new Error(json.error || 'Error en API');
+      return json.data;
+    }
+    // Para escritura usamos POST con text/plain (evita preflight)
+    const url = API;
+    const res = await fetch(url, {
+      method: 'POST',
+      redirect: 'follow',
+      body: JSON.stringify({ action, ...body }),
+      headers: { 'Content-Type': 'text/plain;charset=utf-8' }
+    });
+    const json = await res.json();
+    if (!json.ok) throw new Error(json.error || 'Error en API');
+    return json.data;
+  } catch(e) {
+    // Si falla por CORS, intentar con no-cors + GET como fallback
+    if (e.message && e.message.includes('fetch')) {
+      throw new Error('No se pudo conectar al servidor. Verifica que el Apps Script esté publicado como "Cualquier usuario".');
+    }
+    throw e;
+  }
 }
 
 // ══ DATA ══════════════════════════════════════════════════════════
@@ -735,7 +753,10 @@ function buildDB(raw) {
     DB.resumen.totalGastos   = raw.resumen.totalGastos   || 0;
     DB.resumen.totalSueldos  = raw.resumen.totalSueldos  || 0;
     DB.resumen.neto          = raw.resumen.neto          || 0;
-    DB.resumen.saldo         = DB.resumen.neto;
+    // Saldo en cuenta viene directamente del Sheet
+    DB.resumen.saldo         = (raw.resumen.saldo != null && raw.resumen.saldo !== 0)
+                               ? raw.resumen.saldo
+                               : raw.resumen.neto;
   }
 }
 
@@ -768,7 +789,7 @@ function recalc(){
   DB.resumen.totalIngresos = DB.ingresos.reduce((s,i)=>s+(i.ingreso||0),0);
   DB.resumen.totalGastos   = DB.gastos.reduce((s,g)=>s+(g.gasto||0),0);
   DB.resumen.neto          = DB.resumen.totalIngresos - DB.resumen.totalGastos - (DB.resumen.totalSueldos||0);
-  DB.resumen.saldo         = DB.resumen.neto;
+  // saldo viene del Sheet, no se recalcula localmente
   DB.cartera.total         = DB.cartera.items.reduce((s,c)=>s+(c.valorTotal||0),0);
   DB.prestamos.total       = DB.prestamos.items.reduce((s,p)=>s+(p.valor||0),0);
 }
@@ -781,7 +802,7 @@ function renderDashboard(){
   document.getElementById("kpi-gastos").textContent   = fmt(r.totalGastos);
   document.getElementById("kpi-neto").textContent     = fmt(r.neto);
   document.getElementById("kpi-neto").style.color     = r.neto>=0?"var(--green)":"var(--red)";
-  document.getElementById("kpi-saldo").textContent    = fmt(r.saldo);
+  document.getElementById("kpi-saldo").textContent    = fmt(r.saldo || r.neto);
   const margen = r.totalIngresos ? ((r.neto/r.totalIngresos)*100).toFixed(1) : 0;
   document.getElementById("kpi-margen").textContent   = "Margen: "+margen+"%";
   const cartPend = DB.cartera.items.filter(c=>c.estado!=="COBRADO").reduce((s,c)=>s+(c.pendiente||0),0);
