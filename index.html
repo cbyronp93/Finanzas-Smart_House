@@ -249,7 +249,7 @@
 
   <div class="g3">
     <div class="card">
-      <div class="card-title">📋 Total Cartera</div>
+      <div class="card-title">📋 Cartera Pendiente</div>
       <div class="stat-val ca" id="kpi-cartera">Cargando...</div>
       <div class="stat-sub" id="kpi-cartera-sub">-</div>
     </div>
@@ -274,6 +274,11 @@
       <div class="card-title">Gastos por Categoría</div>
       <div class="chart-box"><canvas id="chartCats"></canvas></div>
     </div>
+  </div>
+
+  <div class="card" style="margin-bottom:0">
+    <div class="card-title">👥 Cobro Socios Mensual</div>
+    <div class="chart-box"><canvas id="chartSocios"></canvas></div>
   </div>
 
   <div class="g2">
@@ -340,21 +345,16 @@
 
 <!-- ══ CARTERA ═══════════════════════════════════════════════════════ -->
 <div id="tab-cartera" class="tab-content stack">
-  <div class="g3" style="margin-bottom:0">
+  <div class="g2" style="margin-bottom:0">
     <div class="card">
-      <div class="card-title">💰 Total Cartera</div>
-      <div class="stat-val ca" id="cart-total">Cargando...</div>
+      <div class="card-title">📋 Cartera Pendiente</div>
+      <div class="stat-val ca" id="cart-pendiente">Cargando...</div>
       <div class="stat-sub" id="cart-pend-sub"></div>
     </div>
     <div class="card">
-      <div class="card-title">🔴 Por Cobrar</div>
-      <div class="stat-val cr" id="cart-pendiente"></div>
-      <div class="stat-sub">Trabajos activos</div>
-    </div>
-    <div class="card">
-      <div class="card-title">✅ Cobrado</div>
-      <div class="stat-val cg" id="cart-cobrado"></div>
-      <div class="stat-sub">Pagos recibidos</div>
+      <div class="card-title">📊 Trabajos</div>
+      <div class="stat-val" style="color:var(--blue)" id="cart-count">-</div>
+      <div class="stat-sub">Pendientes de cobro</div>
     </div>
   </div>
   <div class="section-row" style="margin-top:4px">
@@ -384,8 +384,8 @@
     </div>
     <div class="card">
       <div class="card-title">⚖️ Saldo a Favor</div>
-      <div class="stat-val cg">Pablo</div>
-      <div class="stat-sub">Diferencia: $17.85</div>
+      <div class="stat-val cg" id="socio-favor-nombre">-</div>
+      <div class="stat-sub" id="socio-favor-diff">Diferencia: -</div>
     </div>
   </div>
   <div class="g2">
@@ -754,8 +754,6 @@ function buildDB(raw) {
     DB.resumen.totalByron        = raw.resumen.totalByron        || 0;
     DB.resumen.aFavorDe          = raw.resumen.aFavorDe          || 'PABLO';
     DB.resumen.diffAbs           = raw.resumen.diffAbs           || 0;
-    DB.resumen.cartTotal         = raw.resumen.cartTotal         || 0;
-    DB.resumen.cartCobrado       = raw.resumen.cartCobrado       || 0;
     DB.resumen.cartPendiente     = raw.resumen.cartPendiente     || 0;
     DB.resumen.totalDeudas       = raw.resumen.totalDeudas       || 0;
     DB.resumen.totalDeudasPend   = raw.resumen.totalDeudasPend   || 0;
@@ -812,10 +810,8 @@ function renderDashboard(){
 
   // Usar totales directo del Sheet
   const cartPend  = r.cartPendiente || DB.cartera.items.filter(c=>c.estado!=="COBRADO").reduce((s,c)=>s+(c.pendiente||0),0);
-  const cartCobr  = r.cartCobrado   || DB.cartera.items.filter(c=>c.estado==="COBRADO").reduce((s,c)=>s+(c.valorTotal||0),0);
-  const cartTotal = r.cartTotal     || DB.cartera.total;
   const cartPendN = DB.cartera.items.filter(c=>c.estado==="PENDIENTE"||c.estado==="PARCIAL").length;
-  document.getElementById("kpi-cartera").textContent = fmt(cartTotal);
+  document.getElementById("kpi-cartera").textContent = fmt(cartPend);
   document.getElementById("kpi-cartera-sub").textContent = cartPendN+" trabajos pendientes";
   const all = [
     ...DB.ingresos.map(i=>({fecha:i.fecha,desc:i.descripcion,monto:i.ingreso,tipo:"ing"})),
@@ -863,6 +859,42 @@ function getCatGastos(){
   const map={};
   DB.gastos.forEach(g=>{map[g.categoria]=(map[g.categoria]||0)+g.gasto});
   return Object.entries(map).map(([n,v])=>({n,v}));
+}
+
+function renderSociosChart(){
+  const meses=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
+  const pMap={},bMap={};
+  DB.pablo.forEach(m=>{
+    const p=m.fecha.split("/"); if(p.length<2)return;
+    const mes=parseInt(p[1])-1;
+    if(m.valor>0) pMap[mes]=(pMap[mes]||0)+m.valor;
+  });
+  DB.byron.forEach(m=>{
+    const p=m.fecha.split("/"); if(p.length<2)return;
+    const mes=parseInt(p[1])-1;
+    if(m.valor>0) bMap[mes]=(bMap[mes]||0)+m.valor;
+  });
+  const ctx=document.getElementById("chartSocios");
+  if(!ctx)return;
+  if(window._chSocios)window._chSocios.destroy();
+  window._chSocios=new Chart(ctx.getContext("2d"),{
+    type:"bar",
+    data:{
+      labels:meses,
+      datasets:[
+        {label:"Pablo",data:meses.map((_,i)=>pMap[i]||0),backgroundColor:"#3b82f6",borderRadius:4},
+        {label:"Byron",data:meses.map((_,i)=>bMap[i]||0),backgroundColor:"#8b5cf6",borderRadius:4}
+      ]
+    },
+    options:{
+      plugins:{legend:{display:true,labels:{color:"#c8e6c9",font:{size:11}}}},
+      scales:{
+        x:{grid:{color:"#1a2e1a"},ticks:{color:"#6b8f6b",font:{size:10}}},
+        y:{grid:{color:"#1a2e1a"},ticks:{color:"#6b8f6b",font:{size:10},
+          callback:v=>v?"$"+(v/1000).toFixed(1)+"k":""}}
+      }
+    }
+  });
 }
 function initCharts(){
   const meses=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
@@ -943,18 +975,15 @@ function renderGastos(){
 
 // ══ RENDER CARTERA ════════════════════════════════════════════════
 function renderCartera(){
-  // Totales desde Sheet directamente
-  const pend  = DB.resumen.cartPendiente != null ? DB.resumen.cartPendiente
-                : DB.cartera.items.filter(c=>c.estado!=="COBRADO").reduce((s,c)=>s+(c.pendiente||0),0);
-  const cobr  = DB.resumen.cartCobrado != null ? DB.resumen.cartCobrado
-                : DB.cartera.items.filter(c=>c.estado==="COBRADO").reduce((s,c)=>s+(c.valorTotal||0),0);
-  const total = DB.resumen.cartTotal != null ? DB.resumen.cartTotal : DB.cartera.total;
+  // Pendiente directo desde celda D4 del Sheet
+  const pend  = DB.resumen.cartPendiente || 0;
   const nPend = DB.cartera.items.filter(c=>c.estado==="PENDIENTE"||c.estado==="PARCIAL").length;
-  document.getElementById("cart-total").textContent=fmt(total);
   document.getElementById("cart-pendiente").textContent=fmt(pend);
-  document.getElementById("cart-cobrado").textContent=fmt(cobr);
-  document.getElementById("cart-pend-sub").textContent=nPend+" trabajos activos";
-  document.getElementById("tbl-cartera").innerHTML=DB.cartera.items.map((c,i)=>`
+  document.getElementById("cart-pend-sub").textContent=nPend+" trabajos pendientes";
+  const cc = document.getElementById("cart-count");
+  if(cc) cc.textContent=nPend;
+  const itemsPend=DB.cartera.items.filter(c=>c.estado==="PENDIENTE"||c.estado==="PARCIAL"||c.estado==="VENCIDO");
+  document.getElementById("tbl-cartera").innerHTML=itemsPend.map((c,i)=>`
     <tr>
       <td><span class="mono">${c.fecha}</span></td>
       <td class="fw7">${c.cliente}</td>
@@ -1001,6 +1030,10 @@ function renderSocios(){
   const favorEl = document.getElementById("kpi-socio-favor");
   if(diffEl) diffEl.textContent = fmt(diffVal);
   if(favorEl) favorEl.textContent = "A favor de " + aFavor;
+  const snEl = document.getElementById("socio-favor-nombre");
+  const sdEl = document.getElementById("socio-favor-diff");
+  if(snEl) snEl.textContent = aFavor;
+  if(sdEl) sdEl.textContent = "Diferencia: " + fmt(diffVal);
   document.getElementById("tbl-pablo").innerHTML=DB.pablo.map(m=>`
     <tr>
       <td><span class="mono">${m.fecha}</span></td>
@@ -1170,6 +1203,7 @@ function renderAll(){
   renderSocios();
   renderDeudas();
   initCharts();
+  renderSociosChart();
 }
 
 async function cargarDesdeSheets(silencioso=false){
