@@ -758,6 +758,7 @@ function buildDB(raw) {
     DB.resumen.totalDeudas       = raw.resumen.totalDeudas       || 0;
     DB.resumen.totalDeudasPend   = raw.resumen.totalDeudasPend   || 0;
     DB.resumen.totalDeudasParci  = raw.resumen.totalDeudasParci  || 0;
+    DB.resumen.cartPendiente     = raw.resumen.cartPendiente     || 0;
   }
 }
 
@@ -1062,7 +1063,11 @@ function renderDeudas(){
   if(_dtf) _dtf.textContent=fmt(totalD);
   const _dkpi=document.getElementById("kpi-deudas-total");
   if(_dkpi) _dkpi.textContent=fmt(totalD);
-  document.getElementById("tbl-deudas").innerHTML=DB.prestamos.items.map(p=>`
+  const deudasActivas = DB.prestamos.items.filter(p=>{
+    const e = (p.estado||'').toUpperCase();
+    return e !== 'CANCELADO' && e !== 'PAGADO';
+  });
+  document.getElementById("tbl-deudas").innerHTML=deudasActivas.map(p=>`
     <tr>
       <td><span class="mono">${p.fecha}</span></td>
       <td class="fw7">${p.descripcion}</td>
