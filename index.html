@@ -809,9 +809,10 @@ function renderDashboard(){
     document.getElementById("kpi-socio-favor").textContent = "A favor de " + (r.aFavorDe || "?");
   }
 
-  // Usar totales directo del Sheet
-  const cartPend  = r.cartPendiente || DB.cartera.items.filter(c=>c.estado!=="COBRADO").reduce((s,c)=>s+(c.pendiente||0),0);
-  const cartPendN = DB.cartera.items.filter(c=>c.estado==="PENDIENTE"||c.estado==="PARCIAL").length;
+  // Cartera — usar valor del Sheet o sumar items directamente
+  const cartItemsPend = DB.cartera.items.filter(c=>c.estado==="PENDIENTE"||c.estado==="PARCIAL"||c.estado==="VENCIDO");
+  const cartPend  = r.cartPendiente || cartItemsPend.reduce((s,c)=>s+(c.pendiente||0),0);
+  const cartPendN = cartItemsPend.length;
   document.getElementById("kpi-cartera").textContent = fmt(cartPend);
   document.getElementById("kpi-cartera-sub").textContent = cartPendN+" trabajos pendientes";
   const all = [
@@ -976,14 +977,14 @@ function renderGastos(){
 
 // ══ RENDER CARTERA ════════════════════════════════════════════════
 function renderCartera(){
-  // Pendiente directo desde celda D4 del Sheet
-  const pend  = DB.resumen.cartPendiente || 0;
-  const nPend = DB.cartera.items.filter(c=>c.estado==="PENDIENTE"||c.estado==="PARCIAL").length;
+  // Sumar pendiente directo de los ítems (mismos datos que usa el Sheet)
+  const itemsPend = DB.cartera.items.filter(c=>c.estado==="PENDIENTE"||c.estado==="PARCIAL"||c.estado==="VENCIDO");
+  const pend = itemsPend.reduce((s,c)=>s+(c.pendiente||0), 0);
+  const nPend = itemsPend.length;
   document.getElementById("cart-pendiente").textContent=fmt(pend);
   document.getElementById("cart-pend-sub").textContent=nPend+" trabajos pendientes";
   const cc = document.getElementById("cart-count");
   if(cc) cc.textContent=nPend;
-  const itemsPend=DB.cartera.items.filter(c=>c.estado==="PENDIENTE"||c.estado==="PARCIAL"||c.estado==="VENCIDO");
   document.getElementById("tbl-cartera").innerHTML=itemsPend.map((c,i)=>`
     <tr>
       <td><span class="mono">${c.fecha}</span></td>
