@@ -866,16 +866,22 @@ function getCatGastos(){
 function renderSociosChart(){
   const meses=["Ene","Feb","Mar","Abr","May","Jun","Jul","Ago","Sep","Oct","Nov","Dic"];
   const pMap={},bMap={};
+
+  // Sumar TODOS los movimientos (positivos Y negativos) por mes
   DB.pablo.forEach(m=>{
     const p=m.fecha.split("/"); if(p.length<2)return;
     const mes=parseInt(p[1])-1;
-    if(m.valor>0) pMap[mes]=(pMap[mes]||0)+m.valor;
+    if(!isNaN(mes)) pMap[mes]=(pMap[mes]||0)+m.valor;
   });
   DB.byron.forEach(m=>{
     const p=m.fecha.split("/"); if(p.length<2)return;
     const mes=parseInt(p[1])-1;
-    if(m.valor>0) bMap[mes]=(bMap[mes]||0)+m.valor;
+    if(!isNaN(mes)) bMap[mes]=(bMap[mes]||0)+m.valor;
   });
+
+  const pData=meses.map((_,i)=>Math.round((pMap[i]||0)*100)/100);
+  const bData=meses.map((_,i)=>Math.round((bMap[i]||0)*100)/100);
+
   const ctx=document.getElementById("chartSocios");
   if(!ctx)return;
   if(window._chSocios)window._chSocios.destroy();
@@ -884,16 +890,20 @@ function renderSociosChart(){
     data:{
       labels:meses,
       datasets:[
-        {label:"Pablo",data:meses.map((_,i)=>pMap[i]||0),backgroundColor:"#3b82f6",borderRadius:4},
-        {label:"Byron",data:meses.map((_,i)=>bMap[i]||0),backgroundColor:"#8b5cf6",borderRadius:4}
+        {label:"Pablo",data:pData,backgroundColor:"#3b82f6",borderRadius:4},
+        {label:"Byron",data:bData,backgroundColor:"#8b5cf6",borderRadius:4}
       ]
     },
     options:{
       plugins:{legend:{display:true,labels:{color:"#c8e6c9",font:{size:11}}}},
       scales:{
         x:{grid:{color:"#1a2e1a"},ticks:{color:"#6b8f6b",font:{size:10}}},
-        y:{grid:{color:"#1a2e1a"},ticks:{color:"#6b8f6b",font:{size:10},
-          callback:v=>v?"$"+(v/1000).toFixed(1)+"k":""}}
+        y:{
+          grid:{color:"#1a2e1a"},
+          ticks:{color:"#6b8f6b",font:{size:10},
+            callback:v=>v===0?"$0":v>0?"$"+(v/1000).toFixed(1)+"k":"-$"+(Math.abs(v)/1000).toFixed(1)+"k"
+          }
+        }
       }
     }
   });
