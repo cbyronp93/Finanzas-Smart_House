@@ -221,6 +221,7 @@
   <button class="nav-btn" onclick="switchTab('cartera',this)">📋 Cartera</button>
   <button class="nav-btn" onclick="switchTab('socios',this)">👥 Socios</button>
   <button class="nav-btn" onclick="switchTab('deudas',this)">⚠️ Deudas</button>
+  <button class="nav-btn" onclick="switchTab('obras',this)">🏗️ Obras</button>
 </nav>
 
 <main>
@@ -454,6 +455,43 @@
   </div>
 </div>
 
+
+<!-- ══ OBRAS ════════════════════════════════════════════════════ -->
+<div id="tab-obras" class="tab-content stack">
+  <div class="g4">
+    <div class="card">
+      <div class="card-title">💼 Total Facturado</div>
+      <div class="stat-val cg" id="obra-facturado">-</div>
+    </div>
+    <div class="card">
+      <div class="card-title">📤 Costo Total</div>
+      <div class="stat-val cr" id="obra-costo">-</div>
+    </div>
+    <div class="card">
+      <div class="card-title">📈 Margen Consolidado</div>
+      <div class="stat-val" id="obra-margen-pct" style="color:var(--green)">-</div>
+    </div>
+    <div class="card">
+      <div class="card-title">🔴 Obras bajo 15%</div>
+      <div class="stat-val cr" id="obra-bajo15">-</div>
+      <div class="stat-sub">Requieren atención</div>
+    </div>
+  </div>
+  <div class="card">
+    <table>
+      <thead><tr>
+        <th>Código</th><th>Cliente</th><th>Descripción</th>
+        <th style="text-align:right">Acordado</th>
+        <th style="text-align:right">Costo Real</th>
+        <th style="text-align:right">Margen $</th>
+        <th style="text-align:center">Margen %</th>
+        <th style="text-align:right">Por Cobrar</th>
+      </tr></thead>
+      <tbody id="tbl-obras"></tbody>
+    </table>
+  </div>
+</div>
+
 </main>
 
 <!-- ══ MODAL INGRESO ═══════════════════════════════════════════════════ -->
@@ -524,6 +562,10 @@
       <div class="form-group">
         <label>Factura # (opcional)</label>
         <input type="text" id="gas-fac" placeholder="N° factura"/>
+      </div>
+      <div class="form-group full">
+        <label>Obra (opcional)</label>
+        <select id="gas-obra"><option value="">Sin obra (gasto general)</option></select>
       </div>
     </div>
     <div class="modal-footer">
@@ -604,6 +646,11 @@
         <div class="pico">⚠️</div>
         <div class="plbl">Deuda / Préstamo</div>
         <div class="pdsc">Nueva obligación, interés o pago parcial</div>
+      </div>
+      <div class="pitem" style="--ic:#10b981;grid-column:1/-1" onclick="closePicker();openModal('modal-obra')">
+        <div class="pico">🏗️</div>
+        <div class="plbl">Nueva Obra</div>
+        <div class="pdsc">Registrar nuevo trabajo / proyecto</div>
       </div>
     </div>
     <button class="pclose" onclick="closePicker()">Cancelar</button>
@@ -689,6 +736,43 @@
   <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
 </div>
 
+
+<!-- ══ MODAL OBRA ════════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-obra" onclick="closeModal('modal-obra')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title">🏗️ Nueva Obra</div>
+      <button class="modal-close" onclick="closeModal('modal-obra')">✕</button>
+    </div>
+    <div class="form-grid">
+      <div class="form-group">
+        <label>Fecha</label>
+        <input type="date" id="obra-fecha"/>
+      </div>
+      <div class="form-group">
+        <label>Valor Acordado ($)</label>
+        <input type="number" id="obra-valor" placeholder="0.00" step="0.01"/>
+      </div>
+      <div class="form-group full">
+        <label>Cliente (usar nombre exacto)</label>
+        <input type="text" id="obra-cliente" list="obra-clientes-list" placeholder="Ej: MUTUALISTA AZUAY"/>
+        <datalist id="obra-clientes-list"></datalist>
+      </div>
+      <div class="form-group full">
+        <label>Descripción del Trabajo</label>
+        <input type="text" id="obra-desc" placeholder="Ej: Instalación cámaras 19 agencias"/>
+      </div>
+    </div>
+    <div style="background:#0a1a0a;border:1px solid #1a3a1a;border-radius:8px;padding:10px 14px;margin-top:4px;font-size:12px;color:#6b8f6b">
+      ⚠️ El nombre del cliente debe ser <strong style="color:#e2f0e2">exactamente igual</strong> a como aparece en otras obras del mismo cliente para que el código correlativo sea correcto.
+    </div>
+    <div class="modal-footer">
+      <button class="btn btn-ghost" onclick="closeModal('modal-obra')">Cancelar</button>
+      <button class="btn btn-green" onclick="agregarObra()">Crear Obra</button>
+    </div>
+  </div>
+</div>
+
 <!-- TOAST -->
 <div id="toast"></div>
 
@@ -732,7 +816,8 @@ const DB = {
   ingresos: [], gastos: [],
   cartera: { total:0, items:[] },
   pablo: [], byron: [],
-  prestamos: { total:0, items:[] }
+  prestamos: { total:0, items:[] },
+  obras: []
 };
 
 function buildDB(raw) {
@@ -755,11 +840,16 @@ function buildDB(raw) {
     DB.resumen.aFavorDe          = raw.resumen.aFavorDe          || 'PABLO';
     DB.resumen.diffAbs           = raw.resumen.diffAbs           || 0;
     DB.resumen.cartPendiente     = raw.resumen.cartPendiente     || 0;
+  }
+  DB.obras = raw.obras || [];
+  // re-open if block was closed above — fix:
+
     DB.resumen.totalDeudas       = raw.resumen.totalDeudas       || 0;
     DB.resumen.totalDeudasPend   = raw.resumen.totalDeudasPend   || 0;
     DB.resumen.totalDeudasParci  = raw.resumen.totalDeudasParci  || 0;
     DB.resumen.cartPendiente     = raw.resumen.cartPendiente     || 0;
   }
+  DB.obras = raw.obras || [];
 }
 
 // ══ HELPERS ══════════════════════════════════════════════════════
@@ -1099,7 +1189,8 @@ async function agregarIngreso(){
   const f=fecha.split('-').reverse().join('/');
   toast('💾 Guardando en Google Sheets...');
   try{
-    await callAPI('addIngreso',{fecha:f,descripcion:desc,ingreso:monto,categoria:cat,factura:fac});
+    const obraI=document.getElementById('ing-obra')?.value||'';
+    await callAPI('addIngreso',{fecha:f,descripcion:desc,ingreso:monto,categoria:cat,factura:fac,obra:obraI});
     DB.ingresos.push({fecha:f,descripcion:desc,ingreso:monto,categoria:cat,factura:fac});
     closeModal('modal-ing');
     document.getElementById('ing-fecha').value=today();
@@ -1121,7 +1212,8 @@ async function agregarGasto(){
   const f=fecha.split('-').reverse().join('/');
   toast('💾 Guardando en Google Sheets...');
   try{
-    await callAPI('addGasto',{fecha:f,descripcion:desc,gasto:monto,categoria:cat,factura:fac});
+    const obraG=document.getElementById('gas-obra')?.value||'';
+    await callAPI('addGasto',{fecha:f,descripcion:desc,gasto:monto,categoria:cat,factura:fac,obra:obraG});
     DB.gastos.push({fecha:f,descripcion:desc,gasto:monto,categoria:cat,factura:fac});
     closeModal('modal-gas');
     document.getElementById('gas-fecha').value=today();
@@ -1220,6 +1312,7 @@ function renderAll(){
   renderDeudas();
   initCharts();
   renderSociosChart();
+  renderObras();
 }
 
 async function cargarDesdeSheets(silencioso=false){
@@ -1251,6 +1344,113 @@ window.addEventListener("DOMContentLoaded",()=>{
     cargarDesdeSheets(true); // true = silencioso, no muestra toast
   }, 60000);
 });
-</script></script>
+</script>
+// ══ OBRAS ════════════════════════════════════════════════════════
+
+function poblarSelectoresObra() {
+  // Ordenar más recientes primero
+  const obras = [...DB.obras].sort((a,b) => b.fecha.localeCompare(a.fecha));
+  const opciones = '<option value="">Sin obra (gasto/ingreso general)</option>' +
+    obras.map(o => `<option value="${o.codigo}">${o.codigo} — ${o.cliente}</option>`).join('');
+
+  const si = document.getElementById('ing-obra');
+  const sg = document.getElementById('gas-obra');
+  if(si) si.innerHTML = opciones;
+  if(sg) sg.innerHTML = opciones;
+
+  // Poblar datalist autocompletado de clientes en nueva obra
+  const dl = document.getElementById('obra-clientes-list');
+  if(dl) {
+    const clientes = [...new Set(DB.obras.map(o => o.cliente))];
+    dl.innerHTML = clientes.map(c => `<option value="${c}">`).join('');
+  }
+}
+
+function renderObras() {
+  const obras = DB.obras;
+  if(!obras.length) {
+    document.getElementById('tbl-obras').innerHTML =
+      '<tr><td colspan="8" style="text-align:center;color:var(--muted);padding:24px">No hay obras registradas</td></tr>';
+    ['obra-facturado','obra-costo','obra-margen-pct','obra-bajo15'].forEach(id=>{
+      const el=document.getElementById(id); if(el) el.textContent='-';
+    });
+    return;
+  }
+
+  const totalFact  = obras.reduce((s,o)=>s+(o.valorAcordado||0),0);
+  const totalCosto = obras.reduce((s,o)=>s+(o.costoReal||0),0);
+  const totalMarg  = totalFact - totalCosto;
+  const margPct    = totalFact ? ((totalMarg/totalFact)*100) : 0;
+  const bajo15     = obras.filter(o=>(o.margenPct||0)*100 < 15).length;
+
+  const ef = document.getElementById('obra-facturado');
+  const ec = document.getElementById('obra-costo');
+  const em = document.getElementById('obra-margen-pct');
+  const eb = document.getElementById('obra-bajo15');
+  if(ef) ef.textContent = fmt(totalFact);
+  if(ec) ec.textContent = fmt(totalCosto);
+  if(em) {
+    const pct = margPct.toFixed(1)+'%';
+    em.textContent = pct;
+    em.style.color = margPct>=30?'var(--green)':margPct>=15?'var(--amber)':'var(--red)';
+  }
+  if(eb) eb.textContent = bajo15;
+
+  document.getElementById('tbl-obras').innerHTML = obras.map(o => {
+    const pct    = (o.margenPct||0)*100;
+    const color  = pct>=30?'#10b981':pct>=15?'#f59e0b':'#ef4444';
+    const semaf  = pct>=30?'🟢':pct>=15?'🟡':'🔴';
+    return `<tr>
+      <td><strong style="font-family:var(--mono);font-size:12px">${o.codigo}</strong></td>
+      <td class="fw7">${o.cliente}</td>
+      <td>${o.descripcion}</td>
+      <td style="text-align:right;font-family:var(--mono)">${fmt(o.valorAcordado)}</td>
+      <td style="text-align:right;font-family:var(--mono);color:var(--red)">${fmt(o.costoReal)}</td>
+      <td style="text-align:right;font-family:var(--mono);color:${color}">${fmt(o.margen)}</td>
+      <td style="text-align:center">
+        <span style="background:${color}22;color:${color};padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700">
+          ${semaf} ${(pct).toFixed(1)}%
+        </span>
+      </td>
+      <td style="text-align:right;font-family:var(--mono);color:var(--amber)">${fmt(o.porCobrar)}</td>
+    </tr>`;
+  }).join('');
+
+  poblarSelectoresObra();
+}
+
+async function agregarObra() {
+  const fecha  = document.getElementById('obra-fecha').value;
+  const val    = parseFloat(document.getElementById('obra-valor').value);
+  const client = document.getElementById('obra-cliente').value.trim();
+  const desc   = document.getElementById('obra-desc').value.trim();
+  if(!fecha||!client||isNaN(val)||val<=0){ toast('⚠️ Completa todos los campos requeridos'); return; }
+  const f = fecha.split('-').reverse().join('/');
+  toast('💾 Creando obra en Google Sheets...');
+  try {
+    const res = await callAPI('addObra',{fecha:f, cliente:client, descripcion:desc, valorAcordado:val});
+    const codigo = res.codigo || '?';
+    // Actualizar DB localmente
+    DB.obras.unshift({
+      fila:res.fila, fecha:f, cliente:client, descripcion:desc,
+      valorAcordado:val, codigo, costoReal:0, margen:val, margenPct:1,
+      cobrado:0, porCobrar:val
+    });
+    closeModal('modal-obra');
+    document.getElementById('obra-fecha').value = today();
+    document.getElementById('obra-valor').value = '';
+    document.getElementById('obra-cliente').value = '';
+    document.getElementById('obra-desc').value = '';
+    renderObras();
+    toast('✅ Obra creada: ' + codigo);
+  } catch(e){ toast('❌ Error: '+e.message); }
+}
+
+// ══ BUG 3a — Cartera: filtrar por pendiente>0 (no por estado) ════
+// (ya aplicado en renderCartera arriba — reemplazar el filtro)
+
+// ══ AGREGAR OBRA en agregarIngreso y agregarGasto ════════════════
+
+</script>
 </body>
 </html>
