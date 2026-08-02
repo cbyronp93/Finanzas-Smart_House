@@ -781,33 +781,16 @@
 const API = 'https://script.google.com/macros/s/AKfycbzJno8TT-9YXxG78QRTIivanzvTufBaTiuuDjKWmhPEBmVYOHFcEuPgZ5nDIhbbVnMx/exec';
 
 async function callAPI(action, body={}) {
-  try {
-    // Para getDatos usamos GET (evita CORS preflight)
-    if (action === 'getDatos') {
-      const url = API + '?action=getDatos';
-      const res = await fetch(url, { method: 'GET', redirect: 'follow' });
-      const json = await res.json();
-      if (!json.ok) throw new Error(json.error || 'Error en API');
-      return json.data;
-    }
-    // Para escritura usamos POST con text/plain (evita preflight)
-    const url = API;
-    const res = await fetch(url, {
-      method: 'POST',
-      redirect: 'follow',
-      body: JSON.stringify({ action, ...body }),
-      headers: { 'Content-Type': 'text/plain;charset=utf-8' }
-    });
-    const json = await res.json();
-    if (!json.ok) throw new Error(json.error || 'Error en API');
-    return json.data;
-  } catch(e) {
-    // Si falla por CORS, intentar con no-cors + GET como fallback
-    if (e.message && e.message.includes('fetch')) {
-      throw new Error('No se pudo conectar al servidor. Verifica que el Apps Script esté publicado como "Cualquier usuario".');
-    }
-    throw e;
-  }
+  const fetchOpts = action === 'getDatos'
+    ? { method: 'GET', redirect: 'follow' }
+    : { method: 'POST', redirect: 'follow',
+        body: JSON.stringify({ action, ...body }),
+        headers: { 'Content-Type': 'text/plain;charset=utf-8' } };
+  const url = action === 'getDatos' ? API + '?action=getDatos' : API;
+  const res  = await fetch(url, fetchOpts);
+  const json = await res.json();
+  if (!json.ok) throw new Error(json.error || 'Error en API');
+  return json.data;
 }
 
 // ══ DATA ══════════════════════════════════════════════════════════
@@ -1318,18 +1301,27 @@ function renderAll(){
 async function cargarDesdeSheets(silencioso=false){
   const loading=document.getElementById('loadingOverlay');
   if(loading && !silencioso) loading.style.display='flex';
+  // Timeout de 20 segundos para no quedar colgado
+  const timeout = new Promise((_,rej) => setTimeout(()=>rej(new Error('Timeout — el script tardó más de 20s')), 20000));
   try{
-    const raw=await callAPI('getDatos');
-    buildDB(raw);
-    renderAll();
+    const raw = await Promise.race([callAPI('getDatos'), timeout]);
+    // Si raw tiene errores parciales, igual continuamos con lo que llegó
+    if (raw && typeof raw === 'object') {
+      buildDB(raw);
+      renderAll();
+    }
     const now = new Date().toLocaleString("es-EC",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
     document.getElementById("syncDate").textContent="Sync: "+now;
     if(!silencioso) toast("✅ Datos cargados desde Google Sheets");
   }catch(e){
-    if(!silencioso) toast("⚠️ Error al conectar con Sheets. Verifica el script.");
-    console.error(e);
+    console.error('cargarDesdeSheets error:', e);
+    if(!silencioso) toast("⚠️ Error: "+e.message);
+    // Mostrar app aunque sea vacía — no quedarse colgado
+    try { renderAll(); } catch(_) {}
+  }finally{
+    // SIEMPRE ocultar el loading, pase lo que pase
+    if(loading) loading.style.display='none';
   }
-  if(loading && !silencioso) loading.style.display='none';
 }
 
 function recargar(){ cargarDesdeSheets(); }
