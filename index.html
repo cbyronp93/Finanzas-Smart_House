@@ -1280,78 +1280,6 @@ function closePicker(){
 }
 
 // ══ RENDER ALL + INIT ════════════════════════════════════════════
-function renderAll(){
-  renderDashboard();
-  renderIngresos();
-  renderGastos();
-  renderCartera();
-  renderSocios();
-  renderDeudas();
-  initCharts();
-  renderSociosChart();
-  renderObras();
-}
-
-async function cargarDesdeSheets(silencioso=false){
-  const loading=document.getElementById('loadingOverlay');
-  if(loading && !silencioso) loading.style.display='flex';
-  // Timeout de 20 segundos para no quedar colgado
-  const timeout = new Promise((_,rej) => setTimeout(()=>rej(new Error('Timeout — el script tardó más de 20s')), 20000));
-  try{
-    const raw = await Promise.race([callAPI('getDatos'), timeout]);
-    // Si raw tiene errores parciales, igual continuamos con lo que llegó
-    if (raw && typeof raw === 'object') {
-      buildDB(raw);
-      renderAll();
-    }
-    const now = new Date().toLocaleString("es-EC",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
-    document.getElementById("syncDate").textContent="Sync: "+now;
-    if(!silencioso) toast("✅ Datos cargados desde Google Sheets");
-  }catch(e){
-    console.error('cargarDesdeSheets error:', e);
-    if(!silencioso) toast("⚠️ Error: "+e.message);
-    // Mostrar app aunque sea vacía — no quedarse colgado
-    try { renderAll(); } catch(_) {}
-  }finally{
-    // SIEMPRE ocultar el loading, pase lo que pase
-    if(loading) loading.style.display='none';
-  }
-}
-
-function recargar(){ cargarDesdeSheets(); }
-
-function fmtK(v){ return v>=1000?"$"+(v/1000).toFixed(0)+"k":v>0?"$"+v:""; }
-
-window.addEventListener("DOMContentLoaded",()=>{
-  document.querySelectorAll('input[type=date]').forEach(i=>i.value=today());
-  cargarDesdeSheets();
-  // Auto-refresh cada 60 segundos para capturar cambios de Pablo en el Sheet
-  setInterval(()=>{
-    cargarDesdeSheets(true); // true = silencioso, no muestra toast
-  }, 60000);
-});
-</script>
-// ══ OBRAS ════════════════════════════════════════════════════════
-
-function poblarSelectoresObra() {
-  // Ordenar más recientes primero
-  const obras = [...DB.obras].sort((a,b) => b.fecha.localeCompare(a.fecha));
-  const opciones = '<option value="">Sin obra (gasto/ingreso general)</option>' +
-    obras.map(o => `<option value="${o.codigo}">${o.codigo} — ${o.cliente}</option>`).join('');
-
-  const si = document.getElementById('ing-obra');
-  const sg = document.getElementById('gas-obra');
-  if(si) si.innerHTML = opciones;
-  if(sg) sg.innerHTML = opciones;
-
-  // Poblar datalist autocompletado de clientes en nueva obra
-  const dl = document.getElementById('obra-clientes-list');
-  if(dl) {
-    const clientes = [...new Set(DB.obras.map(o => o.cliente))];
-    dl.innerHTML = clientes.map(c => `<option value="${c}">`).join('');
-  }
-}
-
 function renderObras() {
   const obras = DB.obras;
   if(!obras.length) {
@@ -1404,6 +1332,78 @@ function renderObras() {
 
   poblarSelectoresObra();
 }
+
+function poblarSelectoresObra() {
+  // Ordenar más recientes primero
+  const obras = [...DB.obras].sort((a,b) => b.fecha.localeCompare(a.fecha));
+  const opciones = '<option value="">Sin obra (gasto/ingreso general)</option>' +
+    obras.map(o => `<option value="${o.codigo}">${o.codigo} — ${o.cliente}</option>`).join('');
+
+  const si = document.getElementById('ing-obra');
+  const sg = document.getElementById('gas-obra');
+  if(si) si.innerHTML = opciones;
+  if(sg) sg.innerHTML = opciones;
+
+  // Poblar datalist autocompletado de clientes en nueva obra
+  const dl = document.getElementById('obra-clientes-list');
+  if(dl) {
+    const clientes = [...new Set(DB.obras.map(o => o.cliente))];
+    dl.innerHTML = clientes.map(c => `<option value="${c}">`).join('');
+  }
+}
+
+function renderAll(){
+  renderDashboard();
+  renderIngresos();
+  renderGastos();
+  renderCartera();
+  renderSocios();
+  renderDeudas();
+  initCharts();
+  renderSociosChart();
+  renderObras();
+}
+
+async function cargarDesdeSheets(silencioso=false){
+  const loading=document.getElementById('loadingOverlay');
+  if(loading && !silencioso) loading.style.display='flex';
+  // Timeout de 20 segundos para no quedar colgado
+  const timeout = new Promise((_,rej) => setTimeout(()=>rej(new Error('Timeout — el script tardó más de 20s')), 20000));
+  try{
+    const raw = await Promise.race([callAPI('getDatos'), timeout]);
+    // Si raw tiene errores parciales, igual continuamos con lo que llegó
+    if (raw && typeof raw === 'object') {
+      buildDB(raw);
+      renderAll();
+    }
+    const now = new Date().toLocaleString("es-EC",{day:"2-digit",month:"short",year:"numeric",hour:"2-digit",minute:"2-digit"});
+    document.getElementById("syncDate").textContent="Sync: "+now;
+    if(!silencioso) toast("✅ Datos cargados desde Google Sheets");
+  }catch(e){
+    console.error('cargarDesdeSheets error:', e);
+    if(!silencioso) toast("⚠️ Error: "+e.message);
+    // Mostrar app aunque sea vacía — no quedarse colgado
+    try { renderAll(); } catch(_) {}
+  }finally{
+    // SIEMPRE ocultar el loading, pase lo que pase
+    if(loading) loading.style.display='none';
+  }
+}
+
+function recargar(){ cargarDesdeSheets(); }
+
+function fmtK(v){ return v>=1000?"$"+(v/1000).toFixed(0)+"k":v>0?"$"+v:""; }
+
+window.addEventListener("DOMContentLoaded",()=>{
+  document.querySelectorAll('input[type=date]').forEach(i=>i.value=today());
+  cargarDesdeSheets();
+  // Auto-refresh cada 60 segundos para capturar cambios de Pablo en el Sheet
+  setInterval(()=>{
+    cargarDesdeSheets(true); // true = silencioso, no muestra toast
+  }, 60000);
+});
+</script>
+// ══ OBRAS ════════════════════════════════════════════════════════
 
 async function agregarObra() {
   const fecha  = document.getElementById('obra-fecha').value;
