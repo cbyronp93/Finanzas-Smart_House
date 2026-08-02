@@ -1311,7 +1311,9 @@ function renderObras() {
   if(eb) eb.textContent = bajo15;
 
   document.getElementById('tbl-obras').innerHTML = obras.map(o => {
-    const pct    = (o.margenPct||0)*100;
+    // margenPct viene como decimal desde Sheets (0.55 = 55%)
+    const pctRaw = o.margenPct || 0;
+    const pct    = Math.abs(pctRaw) <= 1 ? pctRaw * 100 : pctRaw; // normalizar
     const color  = pct>=30?'#10b981':pct>=15?'#f59e0b':'#ef4444';
     const semaf  = pct>=30?'🟢':pct>=15?'🟡':'🔴';
     return `<tr>
