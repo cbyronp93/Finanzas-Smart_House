@@ -812,27 +812,21 @@ function buildDB(raw) {
   DB.byron  = raw.byron  || [];
   DB.prestamos.items = raw.prestamos || [];
   DB.prestamos.total = DB.prestamos.items.reduce((s,p)=>s+(p.valor||0),0);
+  DB.obras  = raw.obras  || [];
   if (raw.resumen) {
-    // Usar directamente los valores calculados por el Apps Script
-    DB.resumen.totalIngresos = raw.resumen.totalIngresos || 0;
-    DB.resumen.totalGastos   = raw.resumen.totalGastos   || 0;
-    DB.resumen.totalSueldos  = raw.resumen.totalSueldos  || 0;
+    DB.resumen.totalIngresos     = raw.resumen.totalIngresos     || 0;
+    DB.resumen.totalGastos       = raw.resumen.totalGastos       || 0;
+    DB.resumen.totalSueldos      = raw.resumen.totalSueldos      || 0;
     DB.resumen.saldo             = raw.resumen.saldo             || 0;
     DB.resumen.totalPablo        = raw.resumen.totalPablo        || 0;
     DB.resumen.totalByron        = raw.resumen.totalByron        || 0;
     DB.resumen.aFavorDe          = raw.resumen.aFavorDe          || 'PABLO';
     DB.resumen.diffAbs           = raw.resumen.diffAbs           || 0;
     DB.resumen.cartPendiente     = raw.resumen.cartPendiente     || 0;
-  }
-  DB.obras = raw.obras || [];
-  // re-open if block was closed above — fix:
-
     DB.resumen.totalDeudas       = raw.resumen.totalDeudas       || 0;
     DB.resumen.totalDeudasPend   = raw.resumen.totalDeudasPend   || 0;
     DB.resumen.totalDeudasParci  = raw.resumen.totalDeudasParci  || 0;
-    DB.resumen.cartPendiente     = raw.resumen.cartPendiente     || 0;
   }
-  DB.obras = raw.obras || [];
 }
 
 // ══ HELPERS ══════════════════════════════════════════════════════
