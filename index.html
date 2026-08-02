@@ -647,7 +647,7 @@
         <div class="plbl">Deuda / Préstamo</div>
         <div class="pdsc">Nueva obligación, interés o pago parcial</div>
       </div>
-      <div class="pitem" style="--ic:#10b981;grid-column:1/-1" onclick="closePicker();openModal('modal-obra')">
+      <div class="pitem" style="--ic:#10b981;grid-column:1/-1" onclick="closePicker();abrirModalObra()">
         <div class="pico">🏗️</div>
         <div class="plbl">Nueva Obra</div>
         <div class="pdsc">Registrar nuevo trabajo / proyecto</div>
@@ -1265,6 +1265,11 @@ async function agregarDeuda(){
 }
 
 // ══ FAB ══════════════════════════════════════════════════════════
+function abrirModalObra() {
+  poblarSelectoresObra();
+  openModal('modal-obra');
+}
+
 function togglePicker(){
   const ov=document.getElementById('pickerOv');
   const fab=document.getElementById('fab');
@@ -1311,9 +1316,7 @@ function renderObras() {
   if(eb) eb.textContent = bajo15;
 
   document.getElementById('tbl-obras').innerHTML = obras.map(o => {
-    // margenPct viene como decimal desde Sheets (0.55 = 55%)
-    const pctRaw = o.margenPct || 0;
-    const pct    = Math.abs(pctRaw) <= 1 ? pctRaw * 100 : pctRaw; // normalizar
+    const pct    = (o.margenPct||0)*100;
     const color  = pct>=30?'#10b981':pct>=15?'#f59e0b':'#ef4444';
     const semaf  = pct>=30?'🟢':pct>=15?'🟡':'🔴';
     return `<tr>
@@ -1346,10 +1349,15 @@ function poblarSelectoresObra() {
   if(si) si.innerHTML = opciones;
   if(sg) sg.innerHTML = opciones;
 
-  // Poblar datalist autocompletado de clientes en nueva obra
+  // Poblar datalist — clientes de obras + cartera + ingresos (sin duplicados)
   const dl = document.getElementById('obra-clientes-list');
   if(dl) {
-    const clientes = [...new Set(DB.obras.map(o => o.cliente))];
+    const set = new Set();
+    DB.obras.forEach(o => o.cliente && set.add(o.cliente));
+    DB.cartera.items.forEach(c => c.cliente && set.add(c.cliente));
+    DB.ingresos.forEach(i => i.descripcion && set.add(i.descripcion));
+    // Ordenar alfabéticamente
+    const clientes = [...set].sort((a,b) => a.localeCompare(b));
     dl.innerHTML = clientes.map(c => `<option value="${c}">`).join('');
   }
 }
