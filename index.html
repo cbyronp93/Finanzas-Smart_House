@@ -1265,7 +1265,7 @@ async function agregarDeuda(){
 }
 
 // ══ FAB ══════════════════════════════════════════════════════════
-function abrirModalObra() {
+function abrirModalObra(){
   poblarSelectoresObra();
   openModal('modal-obra');
 }
@@ -1349,16 +1349,12 @@ function poblarSelectoresObra() {
   if(si) si.innerHTML = opciones;
   if(sg) sg.innerHTML = opciones;
 
-  // Poblar datalist — clientes de obras + cartera + ingresos (sin duplicados)
+  // Datalist — solo clientes de OBRAS, ordenados alfabéticamente
   const dl = document.getElementById('obra-clientes-list');
   if(dl) {
-    const set = new Set();
-    DB.obras.forEach(o => o.cliente && set.add(o.cliente));
-    DB.cartera.items.forEach(c => c.cliente && set.add(c.cliente));
-    DB.ingresos.forEach(i => i.descripcion && set.add(i.descripcion));
-    // Ordenar alfabéticamente
-    const clientes = [...set].sort((a,b) => a.localeCompare(b));
-    dl.innerHTML = clientes.map(c => `<option value="${c}">`).join('');
+    const clientes = [...new Set(DB.obras.map(o => o.cliente).filter(Boolean))]
+      .sort((a,b) => a.localeCompare(b));
+    dl.innerHTML = clientes.map(c => '<option value="' + c + '">').join('');
   }
 }
 
