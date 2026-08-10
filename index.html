@@ -311,7 +311,7 @@
   </div>
   <div class="card">
     <table>
-      <thead><tr><th>Fecha</th><th>Descripción / Cliente</th><th>Categoría</th><th>Factura</th><th style="text-align:right">Ingreso</th></tr></thead>
+      <thead><tr><th>Fecha</th><th>Descripción / Cliente</th><th>Categoría</th><th>Factura</th><th style="text-align:right">Ingreso</th><th></th></tr></thead>
       <tbody id="tbl-ingresos"></tbody>
     </table>
   </div>
@@ -338,7 +338,7 @@
   </div>
   <div class="card">
     <table>
-      <thead><tr><th>Fecha</th><th>Descripción</th><th>Factura</th><th>Categoría</th><th style="text-align:right">Gasto</th></tr></thead>
+      <thead><tr><th>Fecha</th><th>Descripción</th><th>Factura</th><th>Categoría</th><th style="text-align:right">Gasto</th><th></th></tr></thead>
       <tbody id="tbl-gastos"></tbody>
     </table>
   </div>
@@ -458,7 +458,7 @@
 
 <!-- ══ OBRAS ════════════════════════════════════════════════════ -->
 <div id="tab-obras" class="tab-content stack">
-  <div class="g4">
+  <div class="g5" style="grid-template-columns:repeat(5,1fr)">
     <div class="card">
       <div class="card-title">💼 Total Facturado</div>
       <div class="stat-val cg" id="obra-facturado">-</div>
@@ -472,7 +472,12 @@
       <div class="stat-val" id="obra-margen-pct" style="color:var(--green)">-</div>
     </div>
     <div class="card">
-      <div class="card-title">🔴 Obras bajo 15%</div>
+      <div class="card-title">⏳ Pendientes</div>
+      <div class="stat-val ca" id="obra-pendientes">-</div>
+      <div class="stat-sub" id="obra-completadas-sub">- completadas</div>
+    </div>
+    <div class="card">
+      <div class="card-title">🔴 Bajo 15% margen</div>
       <div class="stat-val cr" id="obra-bajo15">-</div>
       <div class="stat-sub">Requieren atención</div>
     </div>
@@ -480,12 +485,13 @@
   <div class="card">
     <table>
       <thead><tr>
-        <th>Código</th><th>Cliente</th><th>Descripción</th>
+        <th>Fecha</th><th>Código</th><th>Cliente</th><th>Descripción</th>
         <th style="text-align:right">Acordado</th>
         <th style="text-align:right">Costo Real</th>
         <th style="text-align:right">Margen $</th>
         <th style="text-align:center">Margen %</th>
         <th style="text-align:right">Por Cobrar</th>
+        <th style="text-align:center">Estado</th>
       </tr></thead>
       <tbody id="tbl-obras"></tbody>
     </table>
@@ -754,8 +760,8 @@
         <input type="date" id="obra-fecha"/>
       </div>
       <div class="form-group">
-        <label>Valor Acordado ($)</label>
-        <input type="number" id="obra-valor" placeholder="0.00" step="0.01"/>
+        <label>Valor Acordado ($ — opcional)</label>
+        <input type="number" id="obra-valor" placeholder="0.00 (dejar vacío si no hay proforma)" step="0.01"/>
       </div>
       <div class="form-group full">
         <label>Cliente (usar nombre exacto)</label>
@@ -773,6 +779,23 @@
     <div class="modal-footer">
       <button class="btn btn-ghost" onclick="closeModal('modal-obra')">Cancelar</button>
       <button class="btn btn-green" onclick="agregarObra()">Crear Obra</button>
+    </div>
+  </div>
+</div>
+
+
+<!-- ══ MODAL EDITAR ══════════════════════════════════════════════ -->
+<div class="modal-overlay" id="modal-edit" onclick="closeModal('modal-edit')">
+  <div class="modal" onclick="event.stopPropagation()">
+    <div class="modal-header">
+      <div class="modal-title" id="edit-titulo">✏️ Editar</div>
+      <button class="modal-close" onclick="closeModal('modal-edit')">✕</button>
+    </div>
+    <div id="edit-body" class="form-grid"></div>
+    <div class="modal-footer">
+      <button class="btn btn-red" onclick="eliminarRegistro()" style="flex:0.5">🗑 Eliminar</button>
+      <button class="btn btn-ghost" onclick="closeModal('modal-edit')">Cancelar</button>
+      <button class="btn btn-green" onclick="guardarEdicion()">Guardar</button>
     </div>
   </div>
 </div>
@@ -1022,13 +1045,15 @@ function renderIngresos(){
   const total=DB.ingresos.reduce((s,i)=>s+(i.ingreso||0),0);
   document.getElementById("ing-total").textContent=fmt(total);
   document.getElementById("ing-sub").textContent=`${DB.ingresos.length} transacciones · Promedio ${fmt(total/Math.max(DB.ingresos.length,1))}`;
-  document.getElementById("tbl-ingresos").innerHTML=[...DB.ingresos].reverse().map(i=>`
+  const ingRev=[...DB.ingresos].reverse();
+  document.getElementById("tbl-ingresos").innerHTML=ingRev.map((i,idx)=>`
     <tr>
       <td><span class="mono">${i.fecha}</span></td>
       <td>${i.descripcion}</td>
       <td><span class="${badgeCls(i.categoria==="VENTAS"?"COBRADO":i.categoria==="ABONO"?"PARCIAL":"PENDIENTE")}">${i.categoria}</span></td>
       <td>${i.factura||"-"}</td>
       <td class="fw7 cg" style="text-align:right;font-family:var(--mono)">${fmt(i.ingreso)}</td>
+      <td><button onclick="editarIngreso(${idx})" style="background:none;border:1px solid #1a2e1a;border-radius:6px;padding:3px 8px;color:#6b8f6b;cursor:pointer;font-size:11px">✏️</button></td>
     </tr>`).join("");
 }
 
@@ -1045,13 +1070,15 @@ function renderGastos(){
       <div class="fw7" style="font-family:var(--mono);font-size:13px">${fmt(c.v)}</div>
       <div class="pbar-wrap"><div class="pbar-fill" style="width:${total?((c.v/total)*100).toFixed(0):0}%;background:${PIE[i%PIE.length]}"></div></div>
     </div>`).join("");
-  document.getElementById("tbl-gastos").innerHTML=[...DB.gastos].reverse().map(g=>`
+  const gasRev=[...DB.gastos].reverse();
+  document.getElementById("tbl-gastos").innerHTML=gasRev.map((g,idx)=>`
     <tr>
       <td><span class="mono">${g.fecha}</span></td>
       <td>${g.descripcion}</td>
       <td>${g.factura||"-"}</td>
       <td style="color:var(--muted);font-size:12px">${g.categoria}</td>
       <td class="fw7 cr" style="text-align:right;font-family:var(--mono)">${fmt(g.gasto)}</td>
+      <td><button onclick="editarGasto(${idx})" style="background:none;border:1px solid #1a2e1a;border-radius:6px;padding:3px 8px;color:#6b8f6b;cursor:pointer;font-size:11px">✏️</button></td>
     </tr>`).join("");
   renderPieChart();
 }
@@ -1304,7 +1331,10 @@ function renderObras() {
   const totalCosto = obras.reduce((s,o)=>s+(o.costoReal||0),0);
   const totalMarg  = totalFact - totalCosto;
   const margPct    = totalFact ? ((totalMarg/totalFact)*100) : 0;
-  const bajo15     = obras.filter(o=>(o.margenPct||0)*100 < 15).length;
+  const pctRaws    = obras.map(o => { const p=o.margenPct||0; return Math.abs(p)<=1?p*100:p; });
+  const bajo15     = obras.filter((o,i) => pctRaws[i] < 15).length;
+  const pendientes = obras.filter(o => (o.estado||'PENDIENTE') === 'PENDIENTE').length;
+  const completadas= obras.filter(o => o.estado === 'COMPLETADO').length;
 
   const ef = document.getElementById('obra-facturado');
   const ec = document.getElementById('obra-costo');
@@ -1318,24 +1348,40 @@ function renderObras() {
     em.style.color = margPct>=30?'var(--green)':margPct>=15?'var(--amber)':'var(--red)';
   }
   if(eb) eb.textContent = bajo15;
+  const ep = document.getElementById('obra-pendientes');
+  const ec2 = document.getElementById('obra-completadas-sub');
+  if(ep) ep.textContent = pendientes;
+  if(ec2) ec2.textContent = completadas + ' completadas';
 
-  document.getElementById('tbl-obras').innerHTML = obras.map(o => {
-    const pct    = (o.margenPct||0)*100;
+  document.getElementById('tbl-obras').innerHTML = obras.map((o,i) => {
+    const pctRaw = o.margenPct || 0;
+    const pct    = Math.abs(pctRaw) <= 1 ? pctRaw * 100 : pctRaw;
     const color  = pct>=30?'#10b981':pct>=15?'#f59e0b':'#ef4444';
     const semaf  = pct>=30?'🟢':pct>=15?'🟡':'🔴';
-    return `<tr>
+    const est    = o.estado || 'PENDIENTE';
+    const done   = est === 'COMPLETADO';
+    return `<tr style="${done ? 'opacity:0.5;background:#0a1a0a' : ''}">
+      <td><span class="mono" style="font-size:11px">${o.fecha}</span></td>
       <td><strong style="font-family:var(--mono);font-size:12px">${o.codigo}</strong></td>
       <td class="fw7">${o.cliente}</td>
       <td>${o.descripcion}</td>
-      <td style="text-align:right;font-family:var(--mono)">${fmt(o.valorAcordado)}</td>
+      <td style="text-align:right;font-family:var(--mono)">${o.valorAcordado ? fmt(o.valorAcordado) : '<span style="color:var(--muted);font-size:11px">Sin proforma</span>'}</td>
       <td style="text-align:right;font-family:var(--mono);color:var(--red)">${fmt(o.costoReal)}</td>
       <td style="text-align:right;font-family:var(--mono);color:${color}">${fmt(o.margen)}</td>
       <td style="text-align:center">
         <span style="background:${color}22;color:${color};padding:3px 10px;border-radius:20px;font-size:12px;font-weight:700">
-          ${semaf} ${(pct).toFixed(1)}%
+          ${semaf} ${pct.toFixed(1)}%
         </span>
       </td>
       <td style="text-align:right;font-family:var(--mono);color:var(--amber)">${fmt(o.porCobrar)}</td>
+      <td style="text-align:center">
+        <select onchange="cambiarEstadoObra(${i},this.value)"
+          style="border:none;cursor:pointer;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;
+                 background:${done?'#10b98122':'#f59e0b22'};color:${done?'#10b981':'#f59e0b'}">
+          <option value="PENDIENTE" ${!done?'selected':''}>⏳ PENDIENTE</option>
+          <option value="COMPLETADO" ${done?'selected':''}>✅ COMPLETADO</option>
+        </select>
+      </td>
     </tr>`;
   }).join('');
 
@@ -1417,10 +1463,10 @@ window.addEventListener("DOMContentLoaded",()=>{
 
 async function agregarObra() {
   const fecha  = document.getElementById('obra-fecha').value;
-  const val    = parseFloat(document.getElementById('obra-valor').value);
   const client = document.getElementById('obra-cliente').value.trim();
   const desc   = document.getElementById('obra-desc').value.trim();
-  if(!fecha||!client||isNaN(val)||val<=0){ toast('⚠️ Completa todos los campos requeridos'); return; }
+  const val    = parseFloat(document.getElementById('obra-valor').value) || 0;
+  if(!fecha||!client){ toast('⚠️ Fecha y cliente son obligatorios'); return; }
   const f = fecha.split('-').reverse().join('/');
   toast('💾 Creando obra en Google Sheets...');
   try {
@@ -1446,6 +1492,114 @@ async function agregarObra() {
 // (ya aplicado en renderCartera arriba — reemplazar el filtro)
 
 // ══ AGREGAR OBRA en agregarIngreso y agregarGasto ════════════════
+
+
+// ══ EDITAR / ELIMINAR ════════════════════════════════════════════
+let _editCtx = null; // {tipo, idx, filaOrig}
+
+function editarIngreso(idx) {
+  const ingRev = [...DB.ingresos].reverse();
+  const orig   = ingRev[idx];
+  const origIdx = DB.ingresos.indexOf(orig);
+  _editCtx = { tipo:'ingreso', idx: origIdx, fila: orig.fila };
+  document.getElementById('edit-titulo').textContent = '✏️ Editar Ingreso';
+  document.getElementById('edit-body').innerHTML = `
+    <div class="form-group"><label>Fecha</label>
+      <input id="ef-fecha" type="date" value="${orig.fecha.split('/').reverse().join('-')}"/></div>
+    <div class="form-group"><label>Ingreso ($)</label>
+      <input id="ef-monto" type="number" step="0.01" value="${orig.ingreso}"/></div>
+    <div class="form-group full"><label>Descripción</label>
+      <input id="ef-desc" type="text" value="${orig.descripcion}"/></div>
+    <div class="form-group"><label>Categoría</label>
+      <select id="ef-cat">
+        <option ${orig.categoria==='VENTAS'?'selected':''}>VENTAS</option>
+        <option ${orig.categoria==='ABONO'?'selected':''}>ABONO</option>
+        <option ${orig.categoria==='OTROS'?'selected':''}>OTROS</option>
+      </select></div>
+    <div class="form-group"><label>Factura</label>
+      <input id="ef-fac" type="text" value="${orig.factura||''}"/></div>`;
+  openModal('modal-edit');
+}
+
+function editarGasto(idx) {
+  const gasRev = [...DB.gastos].reverse();
+  const orig   = gasRev[idx];
+  const origIdx = DB.gastos.indexOf(orig);
+  _editCtx = { tipo:'gasto', idx: origIdx, fila: orig.fila };
+  document.getElementById('edit-titulo').textContent = '✏️ Editar Gasto';
+  document.getElementById('edit-body').innerHTML = `
+    <div class="form-group"><label>Fecha</label>
+      <input id="ef-fecha" type="date" value="${orig.fecha.split('/').reverse().join('-')}"/></div>
+    <div class="form-group"><label>Gasto ($)</label>
+      <input id="ef-monto" type="number" step="0.01" value="${orig.gasto}"/></div>
+    <div class="form-group full"><label>Descripción</label>
+      <input id="ef-desc" type="text" value="${orig.descripcion}"/></div>
+    <div class="form-group"><label>Categoría</label>
+      <select id="ef-cat">
+        ${['MATERIALES','SUELDOS','TRANSPORTE','ALIMENTACION','ADMINISTRATIVO','SOCIOS','OTROS']
+          .map(c=>`<option ${orig.categoria===c?'selected':''}>${c}</option>`).join('')}
+      </select></div>
+    <div class="form-group"><label>Factura</label>
+      <input id="ef-fac" type="text" value="${orig.factura||''}"/></div>`;
+  openModal('modal-edit');
+}
+
+async function guardarEdicion() {
+  if (!_editCtx) return;
+  const fecha = document.getElementById('ef-fecha').value;
+  const monto = parseFloat(document.getElementById('ef-monto').value);
+  const desc  = document.getElementById('ef-desc').value.trim();
+  const cat   = document.getElementById('ef-cat').value;
+  const fac   = document.getElementById('ef-fac')?.value.trim() || '';
+  if (!fecha || !desc || isNaN(monto)) { toast('⚠️ Completa todos los campos'); return; }
+  const f = fecha.split('-').reverse().join('/');
+  toast('💾 Guardando cambios...');
+  try {
+    if (_editCtx.tipo === 'ingreso') {
+      await callAPI('editIngreso', { fila: _editCtx.fila, fecha:f, descripcion:desc, ingreso:monto, categoria:cat, factura:fac });
+      DB.ingresos[_editCtx.idx] = { ...DB.ingresos[_editCtx.idx], fecha:f, descripcion:desc, ingreso:monto, categoria:cat, factura:fac };
+      renderIngresos(); renderDashboard();
+    } else {
+      await callAPI('editGasto', { fila: _editCtx.fila, fecha:f, descripcion:desc, gasto:monto, categoria:cat, factura:fac });
+      DB.gastos[_editCtx.idx] = { ...DB.gastos[_editCtx.idx], fecha:f, descripcion:desc, gasto:monto, categoria:cat, factura:fac };
+      renderGastos(); renderDashboard();
+    }
+    closeModal('modal-edit');
+    toast('✅ Cambios guardados');
+  } catch(e) { toast('❌ Error: ' + e.message); }
+}
+
+async function eliminarRegistro() {
+  if (!_editCtx) return;
+  if (!confirm('¿Eliminar este registro permanentemente?')) return;
+  toast('🗑 Eliminando...');
+  try {
+    await callAPI('deleteRow', { fila: _editCtx.fila, tab: _editCtx.tipo === 'ingreso' ? 'ingresos' : 'gastos' });
+    if (_editCtx.tipo === 'ingreso') {
+      DB.ingresos.splice(_editCtx.idx, 1);
+      renderIngresos(); renderDashboard();
+    } else {
+      DB.gastos.splice(_editCtx.idx, 1);
+      renderGastos(); renderDashboard();
+    }
+    closeModal('modal-edit');
+    toast('✅ Registro eliminado');
+  } catch(e) { toast('❌ Error: ' + e.message); }
+}
+
+
+async function cambiarEstadoObra(i, estado) {
+  const o = DB.obras[i];
+  if (!o) return;
+  o.estado = estado;
+  renderObras();
+  try {
+    await callAPI('updateObraEstado', { fila: o.fila, estado });
+    toast('✅ Estado actualizado en Google Sheets');
+  } catch(e) {
+    toast('⚠️ Actualizado localmente. Error al guardar: ' + e.message);
+  }
+}
 
 </script>
 </body>
