@@ -1079,6 +1079,7 @@ function renderGastos(){
       <td style="color:var(--muted);font-size:12px">${g.categoria}</td>
       <td class="fw7 cr" style="text-align:right;font-family:var(--mono)">${fmt(g.gasto)}</td>
       <td><button onclick="editarGasto(${idx})" style="background:none;border:1px solid #1a2e1a;border-radius:6px;padding:3px 8px;color:#6b8f6b;cursor:pointer;font-size:11px">✏️</button></td>
+    <td><button onclick=\"editarGasto(${idx})\" style=\"background:none;border:1px solid #1a2e1a;border-radius:6px;padding:3px 8px;color:#6b8f6b;cursor:pointer;font-size:11px\">✏️</button></td>
     </tr>`).join("");
   renderPieChart();
 }
@@ -1144,17 +1145,19 @@ function renderSocios(){
   const sdEl = document.getElementById("socio-favor-diff");
   if(snEl) snEl.textContent = aFavor;
   if(sdEl) sdEl.textContent = "Diferencia: " + fmt(diffVal);
-  document.getElementById("tbl-pablo").innerHTML=DB.pablo.map(m=>`
+  document.getElementById("tbl-pablo").innerHTML=DB.pablo.map((m,idx)=>`
     <tr>
       <td><span class="mono">${m.fecha}</span></td>
       <td>${m.descripcion}</td>
       <td class="fw7 ${(m.valor||0)>=0?"cg":"cr"}" style="text-align:right;font-family:var(--mono)">${(m.valor||0)>=0?"+":""}${fmt(m.valor)}</td>
+      <td><button onclick="editarSocio('pablo',${idx})" style="background:none;border:1px solid #1a2e1a;border-radius:6px;padding:3px 8px;color:#6b8f6b;cursor:pointer;font-size:11px">✏️</button></td>
     </tr>`).join("");
-  document.getElementById("tbl-byron").innerHTML=DB.byron.map(m=>`
+  document.getElementById("tbl-byron").innerHTML=DB.byron.map((m,idx)=>`
     <tr>
       <td><span class="mono">${m.fecha}</span></td>
       <td>${m.descripcion}</td>
       <td class="fw7 ${(m.valor||0)>=0?"cg":"cr"}" style="text-align:right;font-family:var(--mono)">${(m.valor||0)>=0?"+":""}${fmt(m.valor)}</td>
+      <td><button onclick="editarSocio('byron',${idx})" style="background:none;border:1px solid #1a2e1a;border-radius:6px;padding:3px 8px;color:#6b8f6b;cursor:pointer;font-size:11px">✏️</button></td>
     </tr>`).join("");
 }
 
@@ -1176,12 +1179,13 @@ function renderDeudas(){
     const e = (p.estado||'').toUpperCase();
     return e !== 'CANCELADO' && e !== 'PAGADO';
   });
-  document.getElementById("tbl-deudas").innerHTML=deudasActivas.map(p=>`
+  document.getElementById("tbl-deudas").innerHTML=deudasActivas.map((p,idx)=>`
     <tr>
       <td><span class="mono">${p.fecha}</span></td>
       <td class="fw7">${p.descripcion}</td>
       <td class="fw7 cr" style="text-align:right;font-family:var(--mono)">${fmt(p.valor)}</td>
       <td><span class="${badgeCls(p.estado)}">${p.estado}</span></td>
+      <td><button onclick="editarDeuda(${idx})" style="background:none;border:1px solid #1a2e1a;border-radius:6px;padding:3px 8px;color:#6b8f6b;cursor:pointer;font-size:11px">✏️</button></td>
     </tr>`).join("");
 
 }
@@ -1374,6 +1378,7 @@ function renderObras() {
         </span>
       </td>
       <td style="text-align:right;font-family:var(--mono);color:var(--amber)">${fmt(o.porCobrar)}</td>
+      <td><button onclick="editarObra(${i})" style="background:none;border:1px solid #1a2e1a;border-radius:6px;padding:3px 8px;color:#6b8f6b;cursor:pointer;font-size:11px">✏️</button></td>
       <td style="text-align:center">
         <select onchange="cambiarEstadoObra(${i},this.value)"
           style="border:none;cursor:pointer;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;
@@ -1599,6 +1604,137 @@ async function cambiarEstadoObra(i, estado) {
   } catch(e) {
     toast('⚠️ Actualizado localmente. Error al guardar: ' + e.message);
   }
+}
+
+
+// ══ EDITAR SOCIO ═════════════════════════════════════════════════
+function editarSocio(quien, idx) {
+  const arr  = quien === 'pablo' ? DB.pablo : DB.byron;
+  const orig = arr[idx];
+  _editCtx = { tipo: 'socio', quien, idx, fila: orig.fila };
+  document.getElementById('edit-titulo').textContent = '✏️ Editar Movimiento ' + (quien === 'pablo' ? 'Pablo' : 'Byron');
+  document.getElementById('edit-body').innerHTML = `
+    <div class="form-group"><label>Fecha</label>
+      <input id="ef-fecha" type="date" value="${orig.fecha.split('/').reverse().join('-')}"/></div>
+    <div class="form-group"><label>Valor ($) — negativo si es gasto</label>
+      <input id="ef-monto" type="number" step="0.01" value="${orig.valor}"/></div>
+    <div class="form-group full"><label>Descripción</label>
+      <input id="ef-desc" type="text" value="${orig.descripcion}"/></div>`;
+  openModal('modal-edit');
+}
+
+// ══ EDITAR DEUDA ══════════════════════════════════════════════════
+function editarDeuda(idx) {
+  const items = DB.prestamos.items.filter(p => {
+    const e = (p.estado||'').toUpperCase();
+    return e !== 'CANCELADO' && e !== 'PAGADO';
+  });
+  const orig = items[idx];
+  const origIdx = DB.prestamos.items.indexOf(orig);
+  _editCtx = { tipo: 'deuda', idx: origIdx, fila: orig.fila };
+  document.getElementById('edit-titulo').textContent = '✏️ Editar Deuda / Préstamo';
+  document.getElementById('edit-body').innerHTML = `
+    <div class="form-group"><label>Fecha</label>
+      <input id="ef-fecha" type="date" value="${orig.fecha.split('/').reverse().join('-')}"/></div>
+    <div class="form-group"><label>Valor ($)</label>
+      <input id="ef-monto" type="number" step="0.01" value="${orig.valor}"/></div>
+    <div class="form-group full"><label>Descripción</label>
+      <input id="ef-desc" type="text" value="${orig.descripcion}"/></div>
+    <div class="form-group"><label>Estado</label>
+      <select id="ef-est">
+        <option ${orig.estado==='PENDIENTE'?'selected':''}>PENDIENTE</option>
+        <option ${orig.estado==='PAGADO PARCIAL'?'selected':''}>PAGADO PARCIAL</option>
+        <option ${orig.estado==='CANCELADO'?'selected':''}>CANCELADO</option>
+      </select></div>`;
+  openModal('modal-edit');
+}
+
+// ══ EDITAR OBRA ═══════════════════════════════════════════════════
+function editarObra(idx) {
+  const orig = DB.obras[idx];
+  _editCtx = { tipo: 'obra', idx, fila: orig.fila };
+  document.getElementById('edit-titulo').textContent = '✏️ Editar Obra — ' + (orig.codigo || '');
+  document.getElementById('edit-body').innerHTML = `
+    <div class="form-group"><label>Fecha</label>
+      <input id="ef-fecha" type="date" value="${orig.fecha.split('/').reverse().join('-')}"/></div>
+    <div class="form-group"><label>Valor Acordado ($ — opcional)</label>
+      <input id="ef-monto" type="number" step="0.01" value="${orig.valorAcordado || ''}"/></div>
+    <div class="form-group full"><label>Cliente</label>
+      <input id="ef-cliente" type="text" value="${orig.cliente}"/></div>
+    <div class="form-group full"><label>Descripción</label>
+      <input id="ef-desc" type="text" value="${orig.descripcion}"/></div>`;
+  openModal('modal-edit');
+}
+
+// ══ GUARDAR EDICIÓN — extendido para todos los tipos ═════════════
+async function guardarEdicion() {
+  if (!_editCtx) return;
+  const fecha = document.getElementById('ef-fecha').value;
+  const monto = parseFloat(document.getElementById('ef-monto')?.value) || 0;
+  const desc  = document.getElementById('ef-desc').value.trim();
+  const cat   = document.getElementById('ef-cat')?.value || '';
+  const fac   = document.getElementById('ef-fac')?.value?.trim() || '';
+  const est   = document.getElementById('ef-est')?.value || '';
+  if (!fecha || !desc) { toast('⚠️ Completa todos los campos'); return; }
+  const f = fecha.split('-').reverse().join('/');
+  toast('💾 Guardando cambios...');
+  try {
+    const { tipo, idx, fila, quien } = _editCtx;
+
+    if (tipo === 'ingreso') {
+      await callAPI('editIngreso', { fila, fecha:f, descripcion:desc, ingreso:monto, categoria:cat, factura:fac });
+      DB.ingresos[idx] = { ...DB.ingresos[idx], fecha:f, descripcion:desc, ingreso:monto, categoria:cat, factura:fac };
+      renderIngresos(); renderDashboard();
+
+    } else if (tipo === 'gasto') {
+      await callAPI('editGasto', { fila, fecha:f, descripcion:desc, gasto:monto, categoria:cat, factura:fac });
+      DB.gastos[idx] = { ...DB.gastos[idx], fecha:f, descripcion:desc, gasto:monto, categoria:cat, factura:fac };
+      renderGastos(); renderDashboard();
+
+    } else if (tipo === 'socio') {
+      await callAPI('editSocio', { fila, fecha:f, descripcion:desc, valor:monto, quien });
+      const arr = quien === 'pablo' ? DB.pablo : DB.byron;
+      arr[idx] = { ...arr[idx], fecha:f, descripcion:desc, valor:monto };
+      renderSocios(); renderDashboard();
+
+    } else if (tipo === 'deuda') {
+      await callAPI('editDeuda', { fila, fecha:f, descripcion:desc, valor:monto, estado:est });
+      DB.prestamos.items[idx] = { ...DB.prestamos.items[idx], fecha:f, descripcion:desc, valor:monto, estado:est };
+      renderDeudas(); renderDashboard();
+
+    } else if (tipo === 'obra') {
+      const cliente = document.getElementById('ef-cliente').value.trim();
+      await callAPI('editObra', { fila, fecha:f, cliente, descripcion:desc, valorAcordado:monto });
+      DB.obras[idx] = { ...DB.obras[idx], fecha:f, cliente, descripcion:desc, valorAcordado:monto };
+      renderObras();
+    }
+
+    closeModal('modal-edit');
+    toast('✅ Cambios guardados en Google Sheets');
+  } catch(e) { toast('❌ Error: ' + e.message); }
+}
+
+// ══ ELIMINAR — extendido para todos los tipos ════════════════════
+async function eliminarRegistro() {
+  if (!_editCtx) return;
+  if (!confirm('¿Eliminar este registro permanentemente?')) return;
+  const { tipo, idx, fila, quien } = _editCtx;
+  const tabMap = {
+    ingreso: 'ingresos', gasto: 'gastos',
+    socio:   quien === 'pablo' ? 'pablo' : 'byron',
+    deuda:   'prestamos', obra: 'obras'
+  };
+  toast('🗑 Eliminando...');
+  try {
+    await callAPI('deleteRow', { fila, tab: tabMap[tipo] });
+    if (tipo === 'ingreso')      { DB.ingresos.splice(idx,1); renderIngresos(); renderDashboard(); }
+    else if (tipo === 'gasto')   { DB.gastos.splice(idx,1);   renderGastos();   renderDashboard(); }
+    else if (tipo === 'socio')   { (quien==='pablo'?DB.pablo:DB.byron).splice(idx,1); renderSocios(); renderDashboard(); }
+    else if (tipo === 'deuda')   { DB.prestamos.items.splice(idx,1); renderDeudas(); renderDashboard(); }
+    else if (tipo === 'obra')    { DB.obras.splice(idx,1); renderObras(); }
+    closeModal('modal-edit');
+    toast('✅ Registro eliminado');
+  } catch(e) { toast('❌ Error: ' + e.message); }
 }
 
 </script>
