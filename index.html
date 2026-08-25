@@ -233,12 +233,12 @@
     <div class="card">
       <div class="card-title">💰 Total Ingresos</div>
       <div class="stat-val cg" id="kpi-ingresos">Cargando...</div>
-      <div class="stat-sub">Abril 2026 · 4 transacciones</div>
+      <div class="stat-sub" id="kpi-ingresos-sub">-</div>
     </div>
     <div class="card">
       <div class="card-title">📤 Total Gastos</div>
       <div class="stat-val cr" id="kpi-gastos">Cargando...</div>
-      <div class="stat-sub">11 transacciones registradas</div>
+      <div class="stat-sub" id="kpi-gastos-sub">-</div>
     </div>
 
     <div class="card">
@@ -311,7 +311,7 @@
   </div>
   <div class="card">
     <table>
-      <thead><tr><th>Fecha</th><th>Descripción / Cliente</th><th>Categoría</th><th>Factura</th><th style="text-align:right">Ingreso</th><th></th></tr></thead>
+      <thead><tr><th>Fecha</th><th>Descripción / Cliente</th><th>Categoría</th><th>Obra</th><th style="text-align:right">Ingreso</th><th></th></tr></thead>
       <tbody id="tbl-ingresos"></tbody>
     </table>
   </div>
@@ -338,7 +338,7 @@
   </div>
   <div class="card">
     <table>
-      <thead><tr><th>Fecha</th><th>Descripción</th><th>Factura</th><th>Categoría</th><th style="text-align:right">Gasto</th><th></th></tr></thead>
+      <thead><tr><th>Fecha</th><th>Descripción</th><th>Obra</th><th>Categoría</th><th style="text-align:right">Gasto</th><th></th></tr></thead>
       <tbody id="tbl-gastos"></tbody>
     </table>
   </div>
@@ -435,10 +435,10 @@
     </div>
   </div>
 
-  <div class="iess-bar">
+  <div class="iess-bar" id="iess-bar" style="display:none">
     <span style="font-size:26px">🚨</span>
     <div>
-      <div style="font-size:14px;font-weight:700;color:#ef4444">IESS Pendiente: $3,576.95</div>
+      <div style="font-size:14px;font-weight:700;color:#ef4444">IESS Pendiente: <span id="iess-valor">-</span></div>
       <div style="font-size:12px;color:var(--muted);margin-top:2px">Obligación prioritaria — genera multas e intereses por mora</div>
     </div>
   </div>
@@ -481,6 +481,10 @@
       <div class="stat-val cr" id="obra-bajo15">-</div>
       <div class="stat-sub">Requieren atención</div>
     </div>
+  </div>
+  <div class="section-row" style="margin-top:4px">
+    <div class="section-sub" id="obras-filtro-info">-</div>
+    <button class="btn btn-ghost btn-sm" id="btn-obras-toggle" onclick="toggleObrasVer()">Ver todas</button>
   </div>
   <div class="card">
     <table>
@@ -860,6 +864,12 @@ function buildDB(raw) {
 const fmt = n => isNaN(+n) ? "-" : "$"+Number(n).toLocaleString("es-EC",{minimumFractionDigits:2,maximumFractionDigits:2});
 const today = () => new Date().toISOString().split("T")[0];
 const PIE = ["#10b981","#3b82f6","#f59e0b","#ef4444","#8b5cf6","#06b6d4","#f97316"];
+// Convierte "dd/mm/yyyy" en un número ordenable (yyyymmdd). Sirve para ordenar por fecha.
+function parseFechaOrd(f){
+  const p = String(f||'').split('/');
+  if(p.length < 3) return 0;
+  return (+p[2]||0)*10000 + (+p[1]||0)*100 + (+p[0]||0);
+}
 
 function badgeCls(e){
   if(e==="PENDIENTE") return "badge badge-pend";
@@ -890,6 +900,15 @@ function recalc(){
   DB.prestamos.total       = DB.prestamos.items.reduce((s,p)=>s+(p.valor||0),0);
 }
 
+// IESS pendiente — se calcula desde PRESTAMOS (filas cuya descripción
+// contiene "IESS" y que NO están PAGADO/CANCELADO). Nunca desde GASTOS.
+function getIessPendiente(){
+  return DB.prestamos.items
+    .filter(p => (p.descripcion||'').toUpperCase().indexOf('IESS') !== -1
+              && ['PAGADO','CANCELADO'].indexOf((p.estado||'').toUpperCase()) === -1)
+    .reduce((s,p)=>s+(p.valor||0),0);
+}
+
 // ══ RENDER DASHBOARD ══════════════════════════════════════════════
 function renderDashboard(){
   recalc();
@@ -897,6 +916,8 @@ function renderDashboard(){
   document.getElementById("kpi-ingresos").textContent = fmt(r.totalIngresos);
   document.getElementById("kpi-gastos").textContent   = fmt(r.totalGastos);
   document.getElementById("kpi-saldo").textContent    = fmt(r.saldo);
+  const _kis=document.getElementById("kpi-ingresos-sub"); if(_kis) _kis.textContent = DB.ingresos.length + " transacciones";
+  const _kgs=document.getElementById("kpi-gastos-sub");   if(_kgs) _kgs.textContent   = DB.gastos.length + " transacciones";
   // Socios — directo del Sheet
   if(r.diffAbs !== undefined) {
     document.getElementById("kpi-socio-diff").textContent = fmt(r.diffAbs);
@@ -943,7 +964,7 @@ function renderDashboard(){
     </div>
     <div class="card" style="padding:14px 16px;border-color:#3a1a1a">
       <div style="font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:1px">⚠️ Alerta IESS</div>
-      <div style="font-size:16px;font-weight:800;color:var(--red);margin-top:4px">$3,576.95</div>
+      <div style="font-size:16px;font-weight:800;color:var(--red);margin-top:4px">${fmt(getIessPendiente())}</div>
       <div style="font-size:12px;color:var(--muted)">Pendiente — acumula mora</div>
     </div>`;
   renderPieChart();
@@ -1051,7 +1072,7 @@ function renderIngresos(){
       <td><span class="mono">${i.fecha}</span></td>
       <td>${i.descripcion}</td>
       <td><span class="${badgeCls(i.categoria==="VENTAS"?"COBRADO":i.categoria==="ABONO"?"PARCIAL":"PENDIENTE")}">${i.categoria}</span></td>
-      <td>${i.factura||"-"}</td>
+      <td>${i.obra||"-"}</td>
       <td class="fw7 cg" style="text-align:right;font-family:var(--mono)">${fmt(i.ingreso)}</td>
       <td><button onclick="editarIngreso(${idx})" style="background:none;border:1px solid #1a2e1a;border-radius:6px;padding:3px 8px;color:#6b8f6b;cursor:pointer;font-size:11px">✏️</button></td>
     </tr>`).join("");
@@ -1075,11 +1096,10 @@ function renderGastos(){
     <tr>
       <td><span class="mono">${g.fecha}</span></td>
       <td>${g.descripcion}</td>
-      <td>${g.factura||"-"}</td>
+      <td>${g.obra||"-"}</td>
       <td style="color:var(--muted);font-size:12px">${g.categoria}</td>
       <td class="fw7 cr" style="text-align:right;font-family:var(--mono)">${fmt(g.gasto)}</td>
       <td><button onclick="editarGasto(${idx})" style="background:none;border:1px solid #1a2e1a;border-radius:6px;padding:3px 8px;color:#6b8f6b;cursor:pointer;font-size:11px">✏️</button></td>
-    <td><button onclick=\"editarGasto(${idx})\" style=\"background:none;border:1px solid #1a2e1a;border-radius:6px;padding:3px 8px;color:#6b8f6b;cursor:pointer;font-size:11px\">✏️</button></td>
     </tr>`).join("");
   renderPieChart();
 }
@@ -1145,19 +1165,22 @@ function renderSocios(){
   const sdEl = document.getElementById("socio-favor-diff");
   if(snEl) snEl.textContent = aFavor;
   if(sdEl) sdEl.textContent = "Diferencia: " + fmt(diffVal);
-  document.getElementById("tbl-pablo").innerHTML=DB.pablo.map((m,idx)=>`
+  // Ordenar por fecha más reciente arriba (usa el índice original para editar)
+  const pabloOrd = [...DB.pablo].sort((a,b)=>parseFechaOrd(b.fecha)-parseFechaOrd(a.fecha));
+  const byronOrd = [...DB.byron].sort((a,b)=>parseFechaOrd(b.fecha)-parseFechaOrd(a.fecha));
+  document.getElementById("tbl-pablo").innerHTML=pabloOrd.map((m)=>`
     <tr>
       <td><span class="mono">${m.fecha}</span></td>
       <td>${m.descripcion}</td>
       <td class="fw7 ${(m.valor||0)>=0?"cg":"cr"}" style="text-align:right;font-family:var(--mono)">${(m.valor||0)>=0?"+":""}${fmt(m.valor)}</td>
-      <td><button onclick="editarSocio('pablo',${idx})" style="background:none;border:1px solid #1a2e1a;border-radius:6px;padding:3px 8px;color:#6b8f6b;cursor:pointer;font-size:11px">✏️</button></td>
+      <td><button onclick="editarSocio('pablo',${DB.pablo.indexOf(m)})" style="background:none;border:1px solid #1a2e1a;border-radius:6px;padding:3px 8px;color:#6b8f6b;cursor:pointer;font-size:11px">✏️</button></td>
     </tr>`).join("");
-  document.getElementById("tbl-byron").innerHTML=DB.byron.map((m,idx)=>`
+  document.getElementById("tbl-byron").innerHTML=byronOrd.map((m)=>`
     <tr>
       <td><span class="mono">${m.fecha}</span></td>
       <td>${m.descripcion}</td>
       <td class="fw7 ${(m.valor||0)>=0?"cg":"cr"}" style="text-align:right;font-family:var(--mono)">${(m.valor||0)>=0?"+":""}${fmt(m.valor)}</td>
-      <td><button onclick="editarSocio('byron',${idx})" style="background:none;border:1px solid #1a2e1a;border-radius:6px;padding:3px 8px;color:#6b8f6b;cursor:pointer;font-size:11px">✏️</button></td>
+      <td><button onclick="editarSocio('byron',${DB.byron.indexOf(m)})" style="background:none;border:1px solid #1a2e1a;border-radius:6px;padding:3px 8px;color:#6b8f6b;cursor:pointer;font-size:11px">✏️</button></td>
     </tr>`).join("");
 }
 
@@ -1188,6 +1211,14 @@ function renderDeudas(){
       <td><button onclick="editarDeuda(${idx})" style="background:none;border:1px solid #1a2e1a;border-radius:6px;padding:3px 8px;color:#6b8f6b;cursor:pointer;font-size:11px">✏️</button></td>
     </tr>`).join("");
 
+  // Barra IESS — valor dinámico desde PRESTAMOS; se oculta si no hay saldo
+  const iess = getIessPendiente();
+  const iessBar = document.getElementById('iess-bar');
+  const iessVal = document.getElementById('iess-valor');
+  if(iessBar){
+    if(iess > 0){ iessBar.style.display='flex'; if(iessVal) iessVal.textContent = fmt(iess); }
+    else iessBar.style.display='none';
+  }
 }
 
 // ══ AGREGAR REGISTROS ════════════════════════════════════════════
@@ -1203,7 +1234,7 @@ async function agregarIngreso(){
   try{
     const obraI=document.getElementById('ing-obra')?.value||'';
     await callAPI('addIngreso',{fecha:f,descripcion:desc,ingreso:monto,categoria:cat,factura:fac,obra:obraI});
-    DB.ingresos.push({fecha:f,descripcion:desc,ingreso:monto,categoria:cat,factura:fac});
+    DB.ingresos.push({fecha:f,descripcion:desc,ingreso:monto,categoria:cat,factura:fac,obra:obraI});
     closeModal('modal-ing');
     document.getElementById('ing-fecha').value=today();
     document.getElementById('ing-monto').value='';
@@ -1226,7 +1257,7 @@ async function agregarGasto(){
   try{
     const obraG=document.getElementById('gas-obra')?.value||'';
     await callAPI('addGasto',{fecha:f,descripcion:desc,gasto:monto,categoria:cat,factura:fac,obra:obraG});
-    DB.gastos.push({fecha:f,descripcion:desc,gasto:monto,categoria:cat,factura:fac});
+    DB.gastos.push({fecha:f,descripcion:desc,gasto:monto,categoria:cat,factura:fac,obra:obraG});
     closeModal('modal-gas');
     document.getElementById('gas-fecha').value=today();
     document.getElementById('gas-monto').value='';
@@ -1320,6 +1351,11 @@ function closePicker(){
 }
 
 // ══ RENDER ALL + INIT ════════════════════════════════════════════
+let _obrasVerTodas = false;
+function toggleObrasVer(){
+  _obrasVerTodas = !_obrasVerTodas;
+  renderObras();
+}
 function renderObras() {
   const obras = DB.obras;
   if(!obras.length) {
@@ -1357,7 +1393,23 @@ function renderObras() {
   if(ep) ep.textContent = pendientes;
   if(ec2) ec2.textContent = completadas + ' completadas';
 
-  document.getElementById('tbl-obras').innerHTML = obras.map((o,i) => {
+  // Filtro: por defecto solo pendientes (no COMPLETADO); el botón alterna a todas
+  const visibles = _obrasVerTodas ? obras : obras.filter(o => (o.estado||'PENDIENTE') !== 'COMPLETADO');
+  const btnT = document.getElementById('btn-obras-toggle');
+  if(btnT) btnT.textContent = _obrasVerTodas ? 'Ver solo pendientes' : 'Ver todas';
+  const infoT = document.getElementById('obras-filtro-info');
+  if(infoT) infoT.textContent = _obrasVerTodas
+      ? ('Mostrando todas · ' + obras.length + ' obras')
+      : ('Mostrando pendientes · ' + visibles.length + ' de ' + obras.length);
+  if(!visibles.length){
+    document.getElementById('tbl-obras').innerHTML =
+      '<tr><td colspan="11" style="text-align:center;color:var(--muted);padding:24px">No hay obras pendientes — usa "Ver todas"</td></tr>';
+    poblarSelectoresObra();
+    return;
+  }
+
+  document.getElementById('tbl-obras').innerHTML = visibles.map((o) => {
+    const gi     = DB.obras.indexOf(o);
     const pctRaw = o.margenPct || 0;
     const pct    = Math.abs(pctRaw) <= 1 ? pctRaw * 100 : pctRaw;
     const color  = pct>=30?'#10b981':pct>=15?'#f59e0b':'#ef4444';
@@ -1378,9 +1430,9 @@ function renderObras() {
         </span>
       </td>
       <td style="text-align:right;font-family:var(--mono);color:var(--amber)">${fmt(o.porCobrar)}</td>
-      <td><button onclick="editarObra(${i})" style="background:none;border:1px solid #1a2e1a;border-radius:6px;padding:3px 8px;color:#6b8f6b;cursor:pointer;font-size:11px">✏️</button></td>
+      <td><button onclick="editarObra(${gi})" style="background:none;border:1px solid #1a2e1a;border-radius:6px;padding:3px 8px;color:#6b8f6b;cursor:pointer;font-size:11px">✏️</button></td>
       <td style="text-align:center">
-        <select onchange="cambiarEstadoObra(${i},this.value)"
+        <select onchange="cambiarEstadoObra(${gi},this.value)"
           style="border:none;cursor:pointer;font-size:11px;font-weight:700;padding:3px 8px;border-radius:20px;
                  background:${done?'#10b98122':'#f59e0b22'};color:${done?'#10b981':'#f59e0b'}">
           <option value="PENDIENTE" ${!done?'selected':''}>⏳ PENDIENTE</option>
@@ -1394,8 +1446,10 @@ function renderObras() {
 }
 
 function poblarSelectoresObra() {
-  // Ordenar más recientes primero
-  const obras = [...DB.obras].sort((a,b) => b.fecha.localeCompare(a.fecha));
+  // Solo obras pendientes (no COMPLETADO), más recientes primero — evita listas larguísimas
+  const obras = [...DB.obras]
+    .filter(o => (o.estado||'PENDIENTE') !== 'COMPLETADO')
+    .sort((a,b) => b.fecha.localeCompare(a.fecha));
   const opciones = '<option value="">Sin obra (gasto/ingreso general)</option>' +
     obras.map(o => `<option value="${o.codigo}">${o.codigo} — ${o.cliente}</option>`).join('');
 
@@ -1411,6 +1465,24 @@ function poblarSelectoresObra() {
       .sort((a,b) => a.localeCompare(b));
     dl.innerHTML = clientes.map(c => '<option value="' + c + '">').join('');
   }
+}
+
+// Opciones de obra para el formulario de edición: solo pendientes,
+// pero si el registro ya apunta a una obra completada, la incluye para no perderla.
+function opcionesObraEdit(codigoActual){
+  const pend = [...DB.obras]
+    .filter(o => (o.estado||'PENDIENTE') !== 'COMPLETADO')
+    .sort((a,b) => b.fecha.localeCompare(a.fecha));
+  const codes = pend.map(o => o.codigo);
+  let opts = `<option value="" ${!codigoActual?'selected':''}>Sin obra</option>`;
+  if(codigoActual && codes.indexOf(codigoActual) === -1){
+    const cur = DB.obras.find(o => o.codigo === codigoActual);
+    opts += `<option value="${codigoActual}" selected>${codigoActual}${cur?' — '+cur.cliente:''} (completada)</option>`;
+  }
+  opts += pend.map(o =>
+    `<option value="${o.codigo}" ${o.codigo===codigoActual?'selected':''}>${o.codigo} — ${o.cliente}</option>`
+  ).join('');
+  return opts;
 }
 
 function renderAll(){
@@ -1522,7 +1594,9 @@ function editarIngreso(idx) {
         <option ${orig.categoria==='OTROS'?'selected':''}>OTROS</option>
       </select></div>
     <div class="form-group"><label>Factura</label>
-      <input id="ef-fac" type="text" value="${orig.factura||''}"/></div>`;
+      <input id="ef-fac" type="text" value="${orig.factura||''}"/></div>
+    <div class="form-group full"><label>Obra (opcional)</label>
+      <select id="ef-obra">${opcionesObraEdit(orig.obra)}</select></div>`;
   openModal('modal-edit');
 }
 
@@ -1545,7 +1619,9 @@ function editarGasto(idx) {
           .map(c=>`<option ${orig.categoria===c?'selected':''}>${c}</option>`).join('')}
       </select></div>
     <div class="form-group"><label>Factura</label>
-      <input id="ef-fac" type="text" value="${orig.factura||''}"/></div>`;
+      <input id="ef-fac" type="text" value="${orig.factura||''}"/></div>
+    <div class="form-group full"><label>Obra (opcional)</label>
+      <select id="ef-obra">${opcionesObraEdit(orig.obra)}</select></div>`;
   openModal('modal-edit');
 }
 
@@ -1675,6 +1751,7 @@ async function guardarEdicion() {
   const cat   = document.getElementById('ef-cat')?.value || '';
   const fac   = document.getElementById('ef-fac')?.value?.trim() || '';
   const est   = document.getElementById('ef-est')?.value || '';
+  const obra  = document.getElementById('ef-obra')?.value || '';
   if (!fecha || !desc) { toast('⚠️ Completa todos los campos'); return; }
   const f = fecha.split('-').reverse().join('/');
   toast('💾 Guardando cambios...');
@@ -1682,13 +1759,13 @@ async function guardarEdicion() {
     const { tipo, idx, fila, quien } = _editCtx;
 
     if (tipo === 'ingreso') {
-      await callAPI('editIngreso', { fila, fecha:f, descripcion:desc, ingreso:monto, categoria:cat, factura:fac });
-      DB.ingresos[idx] = { ...DB.ingresos[idx], fecha:f, descripcion:desc, ingreso:monto, categoria:cat, factura:fac };
+      await callAPI('editIngreso', { fila, fecha:f, descripcion:desc, ingreso:monto, categoria:cat, factura:fac, obra });
+      DB.ingresos[idx] = { ...DB.ingresos[idx], fecha:f, descripcion:desc, ingreso:monto, categoria:cat, factura:fac, obra };
       renderIngresos(); renderDashboard();
 
     } else if (tipo === 'gasto') {
-      await callAPI('editGasto', { fila, fecha:f, descripcion:desc, gasto:monto, categoria:cat, factura:fac });
-      DB.gastos[idx] = { ...DB.gastos[idx], fecha:f, descripcion:desc, gasto:monto, categoria:cat, factura:fac };
+      await callAPI('editGasto', { fila, fecha:f, descripcion:desc, gasto:monto, categoria:cat, factura:fac, obra });
+      DB.gastos[idx] = { ...DB.gastos[idx], fecha:f, descripcion:desc, gasto:monto, categoria:cat, factura:fac, obra };
       renderGastos(); renderDashboard();
 
     } else if (tipo === 'socio') {
