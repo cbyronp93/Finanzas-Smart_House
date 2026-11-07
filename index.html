@@ -420,7 +420,7 @@
   <div class="g3">
     <div class="card">
       <div class="card-title">⚠️ Total Pendiente</div>
-      <div class="stat-val cr" id="kpi-deudas-total">Cargando...</div>
+      <div class="stat-val cr" id="deuda-total-kpi">Cargando...</div>
       <div class="stat-sub">Préstamos y obligaciones</div>
     </div>
     <div class="card">
@@ -933,7 +933,7 @@ function renderDashboard(){
   const all = [
     ...DB.ingresos.map(i=>({fecha:i.fecha,desc:i.descripcion,monto:i.ingreso,tipo:"ing"})),
     ...DB.gastos.map(g=>  ({fecha:g.fecha,desc:g.descripcion,monto:g.gasto,   tipo:"gas"}))
-  ].slice(-12).reverse();
+  ].sort((a,b)=>parseFechaOrd(b.fecha)-parseFechaOrd(a.fecha)).slice(0,12);
   const tbl = document.getElementById("tbl-recientes");
   tbl.innerHTML = all.map(t=>`
     <tr>
@@ -1198,6 +1198,8 @@ function renderDeudas(){
   if(_dtf) _dtf.textContent=fmt(totalD);
   const _dkpi=document.getElementById("kpi-deudas-total");
   if(_dkpi) _dkpi.textContent=fmt(totalD);
+  const _dkpi2=document.getElementById("deuda-total-kpi");   // ← NUEVA
+  if(_dkpi2) _dkpi2.textContent=fmt(totalD);
   const deudasActivas = DB.prestamos.items.filter(p=>{
     const e = (p.estado||'').toUpperCase();
     return e !== 'CANCELADO' && e !== 'PAGADO';
